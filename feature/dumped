@@ -1,0 +1,195 @@
+
+// inline void RectPatchAveragePooling(FloatSparseMatrix * pixel_feat, int x, int y, 
+//         RectPatchFeatureOpt * opt)
+// {
+//     
+//     double xp = ((double)x+0.5)/(double)opt->sizebin_x - 0.5;
+//     double yp = ((double)y+0.5)/(double)opt->sizebin_y - 0.5;
+//     int ixp = (int)floor(xp+0.5);
+//     int iyp = (int)floor(yp+0.5);
+//         
+//     float * dst = opt->buffer_feat.p;  
+//     int blocks[2] = {opt->buffer_feat.height, opt->buffer_feat.width};
+//     
+//     if (ixp >= 0 && iyp >= 0 && ixp < blocks[1] && iyp < blocks[0]) {
+//         for(int n=0; n<pixel_feat->block_num[0]; n++)
+//         {
+//             float v = pixel_feat->p[0][n];
+//             int bin = pixel_feat->i[0][n];
+// 
+//             *(dst + ixp*blocks[0] + iyp + bin*blocks[0]*blocks[1]) += v;
+//         }
+//     }
+// }
+
+// 2nd order moment pooling
+// ??
+
+// max pooling
+// ??
+
+// entry function for dense rectangle grid features
+void PatchFeatureRectGrid(FloatImage * img, FloatImage * feat, FloatImage * coord, PatchFeatureOpt * opt)
+{    
+    int step_x, step_y;
+    if(opt->step_x <= 0)
+    {
+        // default the patch step to half patch size
+        step_x = opt->size_x/2;
+        step_y = opt->size_y/2;
+    }
+    else
+    {
+        step_x = opt->step_x;
+        step_y = opt->step_y;
+    }
+    int numbin_x = opt->numbin_x;
+    int numbin_y = opt->numbin_y;
+    
+    // allocate buffer for raw patch feature  
+    FloatImage feat_raw;
+    int feat_height = int(1.0 * img->height / step_y + 0.5);
+    int feat_width = int(1.0 * img->width / step_x + 0.5);      
+    int feat_area = feat_height*feat_width;
+    
+    
+#if defined(_PIXEL_FEATURE_NAME) && defined(_PIXEL_CODING_NAME)
+    // cache pixel level feature 
+    FloatImage pixel_feat, pixel_coord;
+    PixelFeature(img, &pixel_feat, &pixel_coord, &opt->pixel_opt);
+    
+    _INIT_CODING(_PIXEL_CODING_NAME)(&opt->pixel_coding_opt);
+    _ASSERT(pixel_feat.height == opt->pixel_coding_opt.length_input);
+    opt->length = opt->pixel_coding_opt.length;   
+    
+    // cache raw patch feature
+    AllocateImage(&feat_raw, feat_height, feat_width, opt->length);  
+    float * coord_src = pixel_coord.p;
+    float * feat_src = pixel_feat.p;
+    float * feat_dst = feat_raw.p;
+        
+    for(int n=0; n<pixel_feat.width; n++){
+        // encode pixel level feature
+        _FUNC_CODING(_PIXEL_CODING_NAME)(feat_src, &opt->pixel_coding_opt);
+        feat_src += pixel_feat.height;
+        
+        // pool encoded feature to rectangle patches        
+        float y = *(coord_src++);
+        float x = *(coord_src++);
+        float xp = (x+0.5)/step_x - 0.5;
+        float yp = (y+0.5)/step_y - 0.5;
+
+        // interpolate the feature into 4 patches
+        // (iyp,   ixp, v00)   ------ (iyp,   ixp+1, v01)
+        //      |                          |
+        // (iyp+1, ixp, v11)   ------ (ixp+1, iyp+1, v11)
+        
+        int ixp = vl_floor_f(xp);
+        int iyp = vl_floor_f(yp);
+                
+        double vx1 = xp-ixp;
+        double vy1 = yp-iyp;
+        double vx0 = 1.0-vx1;
+        double vy0 = 1.0-vy1;
+
+        double v00 = vx0*vy0,
+                v10 = vx1*vy0,
+                v01 = vx0*vy1,
+                v11 = vx1*vy1;
+
+        
+//         mexPrintf("%f, %f, %f, %f\n", v00, v10, v01, v11);
+        for(int i=0; i<opt->pixel_coding_opt.block_num; i++)
+        {
+            float v = opt->pixel_coding_opt.buffer.p[0][i];            
+            int bin = opt->pixel_coding_opt.buffer.i[0][i];
+//             mexPrintf("%dx%dx%d\n", iyp, ixp, bin);
+            if (ixp >= 0 && iyp >= 0) {
+                *(feat_dst + ixp*feat_height + iyp + bin*feat_area) +=
+                        v00*v;
+            }
+
+            if (ixp+1 < feat_width && iyp >= 0) {
+                *(feat_dst + (ixp+1)*feat_height + iyp + bin*feat_area) +=
+                        v10*v;
+            }
+
+            if (ixp >= 0 && iyp+1 < feat_height) {
+                *(feat_dst + ixp*feat_height + (iyp+1) + bin*feat_area) +=
+                        v01*v;
+            }
+
+            if (ixp+1 < feat_width && iyp+1 < feat_height) {
+                *(feat_dst + (ixp+1)*feat_height + (iyp+1) + bin*feat_area) +=
+                        v11*v;
+            }
+        }
+    }
+    
+    CodingReleaseBuffer(&opt->pixel_coding_opt);
+    FreeImage(&pixel_feat);
+    FreeImage(&pixel_coord);
+    
+#elif defined(_PATCH_FEATURE_NAME)
+    AllocateImage(&feat_raw, feat_height, feat_width, opt->length);  
+    // patch level
+    FloatRect r;
+    for(int x=0; x<n_raw_patch[1]*opt->sizebin_x; x+=opt->sizebin_x)
+    {
+        r.x1 = x;
+        r.x2 = x + opt->sizebin_x*2 - 1;
+        for(int y=0; y<n_raw_patch[0]*opt->sizebin_y; y+=opt->sizebin_y)
+        {
+
+            r.y1 = y;
+            r.y2 = y + opt->sizebin_y*2 - 1;
+            _FUNC_PATCH_FEATURE(_PATCH_FEATURE_NAME)(img, &r, opt);
+        }
+    }
+#elif 
+    //error handle
+#endif
+    
+    // group patch grids    
+    AllocateImage(feat, opt->length*numbin_x*numbin_y, (feat_height-numbin_y+1) * (feat_width-numbin_x+1), 1);
+    
+    // patch top-left corner
+    AllocateImage(coord, 2, feat->width, 1);
+    float * coord_dst = coord->p;
+    
+    for(int ix=0; ix<feat_width-numbin_x+1; ix++)
+    {
+        for(int iy=0; iy<feat_height-numbin_y+1; iy++)
+        {
+            *(coord_dst++) = float(iy * step_y);
+            *(coord_dst++) = float(ix * step_x);            
+        }
+    }
+    
+    
+    for(int bin_x=0; bin_x<numbin_x; bin_x++)
+    {
+        for(int bin_y=0; bin_y<numbin_y; bin_y++)
+        {
+            int bin_start = bin_x * numbin_y + bin_y;
+            // add different weight for each bin
+            float bin_norm = 1.0f;
+            for(int i=0; i<opt->length; i++)
+            {
+                float * dst = feat->p + bin_start * opt->length + i;
+                float * src = feat_raw.p + feat_area*i;
+                for(int ix=bin_x; ix<bin_x+feat_width-numbin_x+1; ix++)
+                {
+                    for(int iy=bin_y; iy<bin_y+feat_height-numbin_y+1; iy++)
+                    {
+                        *dst = bin_norm * src[ix*feat_height + iy];
+                        dst += feat->height;
+                    }
+                }
+            }
+        }
+    }
+    
+    // normalize each raw patch
+    NormalizeColumn(feat);        
+}
