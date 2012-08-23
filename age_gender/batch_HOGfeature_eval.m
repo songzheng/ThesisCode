@@ -41,9 +41,9 @@ for i = 1:nset
     disp(names{i});
     dataset.name = names{i};
     dataset = LoadDataset(dataset);
-    if ~exist([feat_path, dataset.name, '_', feat_name, 'Feature_Frontal.mat'], 'file')
+    if ~exist([feat_path, dataset.name, '_', feat_name, 'Feature.mat'], 'file')
         feat = GetAlignFeature1(dataset, target_size, target_land_mark, opts);
-        save([feat_path, dataset.name, '_', feat_name, 'Feature_Frontal.mat'], 'feat', '-v7.3');
+        save([feat_path, dataset.name, '_', feat_name, 'Feature.mat'], 'feat', '-v7.3');
     end
 end
 

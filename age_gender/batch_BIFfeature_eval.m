@@ -1,5 +1,6 @@
 addpath ..\tools
-addpath(genpath('..\.tools'));
+addpath(genpath('..\tools'));
+addpath ..\feature\
 addpath ..\..\data
 
 feat_path = '..\..\data\features\';
@@ -13,6 +14,30 @@ names = {'FGNET', 'Morph1', 'Morph2', 'Yamaha', 'WebFace'};
 nset = length(names);
 datasets = cell(1, nset);
 
+
+feat_name = 'HOG';
+
+if strcmp(feat_name, 'BIF')    
+    addpath BIFfeature\
+    
+    % config pooling window
+    patch_size = [4, 8];
+    opts.win_size = target_size;
+    opts.patch_size = patch_size;
+    opts.pooling = 'max';
+    
+    % config imag preprocess
+    opts.histeq = 1;
+    opts.centersurround = 1;
+    
+    % config feature
+    opts.tag = 'BIFMaxPool';
+    opts = BIFMaxPoolInit(opts);
+    
+elseif strcmp(feat_name, 'HOG')
+    opts = FeatureInit('HOG', 'norient', 6, 'half_sphere', 1, 'sbin', 8, 'scales', [1, 0.5]);
+end
+
 for i = 1:nset
     disp(names{i});
     datasets{i}.label_names = {'age', 'gender', 'OMRONFaceDetection'};
@@ -20,9 +45,9 @@ for i = 1:nset
     datasets{i}.name = names{i};
     
     datasets{i} = LoadDataset(datasets{i});
-    if ~exist([feat_path, dataset.name, '_BIFFeature_Frontal.mat'], 'file')
-        feat = GetBIFFeature(dataset, target_size, target_land_mark);
-        save([feat_path, dataset.name, '_BIFFeature_Frontal'], 'feat', '-v7.3');
+    if ~exist([feat_path, datasets{i}.name, '_', feat_name, 'Feature.mat'], 'file')
+        feat = GetAlignFeature1(datasets{i}, target_size, target_land_mark, opts);
+        save([feat_path, datasets{i}.name, '_', feat_name, 'Feature.mat'], 'feat', '-v7.3');
     end
 end
 
@@ -45,58 +70,31 @@ up_down_rot = [];
 score = [500, inf];
     
 for i = train_set
-    load([feat_path, datasets{i}.name, '_BIFFeature.mat']);
     
-    sel = SelectResult(dataset.OMRONFaceDetection, score, left_right_rot, up_down_rot);
-
+    
+    sel = SelectResult(datasets{i}.OMRONFaceDetection, score, left_right_rot, up_down_rot);
+    
     idx = find(sel>0);
-    age_data_num(i) = length(idx);    
-    feat = feat(idx, :);
     
-    datasets{i}.age_model = [];
-    if bProject
-        % if ~isfield(model, 'subspace_opt')
-        %     subspace_opt.k = 4;
-        %     subspace_opt.beta = 0.05;
-        try
-            load([model_path, dataset.name, '_subspace_model']);
-        catch
-            subspace_opt.ReducedDim = 1500;
-            %     subspace_opt.Regu = 1;
-            %     subspace_opt.ReguAlpha = 0.1;
-            %
-            %     % train subspace
-            %     feature = bsxfun(@rdivide, feature, sqrt(sum(feature.^2, 2)) + eps);
-            %     model.subspace_opt = subspace_opt;
-            %     [model.projection, ~, model.mean] = LSDA(label_age+age_limit(2)*label_gender, subspace_opt, feature);
-            % end
-            [model.projection, ~, model.mean] = PCA(feat, subspace_opt);
-            model.subspace_opt = subspace_opt;
-            save([model_path, dataset.name, '_subspace_model'], 'model');
-        end
-        datasets{i}.age_model.projection = model.projection;
-        datasets{i}.age_model.mean = model.mean;
-        datasets{i}.age_model.subspace_opt = model.subspace_opt;
-    end
+    age = datasets{i}.age(idx);
+    gender = datasets{i}.gender(idx);
     
+    train_split = [];
+    ll = unique([age, gender], 'rows');
+    for j = 1:size(ll,1)
+        split_idx = find(age == ll(j,1) & gender == ll(j,2));
+        split_idx = randsample(split_idx, round(length(split_idx)/2));
+        
+        train_split = [train_split; idx(split_idx)];        
+    end    
     
-    if bSplit
-        try
-            load([model_path, dataset.name, '_split_model_proj', num2str(bProject)]);
-        catch
-            model = AgeGenderEvaluationTrainSplit(dataset.age_model, feat, dataset.age(idx), dataset.gender(idx), age_limit);
-            save([model_path, dataset.name, '_split_model_proj', num2str(bProject)], 'model');
-        end
-        datasets{i}.age_model.splitmodel = model;
-    end
+    clear feat
+    load([feat_path, datasets{i}.name, '_', feat_name, 'Feature.mat']);
+    feat = feat(train_split, :);
+    age = datasets{i}.age(train_split);
+    gender = datasets{i}.gender(train_split);
     
-    % try
-    %     load(['model\', dataset_web.name, '_sub_model']);
-    % catch
-    [datasets{i}.submodel, datasets{i}.splits_id] = AgeGenderEvaluationTrainSub(dataset.age_model, feat, dataset.age(idx), dataset.gender(idx), age_limit);
-    %     save(['model\', dataset_web.name, '_sub_model'], 'model', 'splits');
-    % end
-    
+    datasets{i}.age_model = AgeGenderEvaluationTrain(feat, age, gender, bProject, bSplit, [model_path, datasets{i}.name, '_', feat_name]);
 end
     
 %% cross set evaluation
@@ -105,12 +103,17 @@ age_performance = zeros(nset, nset, 4);
 
 for i = 1:nset
     clear feat
-    load(['feature\', datasets{i}.name, '_BIFFeature_Frontal.mat']);
+    sel = SelectResult(datasets{i}.OMRONFaceDetection, score, left_right_rot, up_down_rot);
     idx = find(sel>0);
+    age_data_num(i) = length(idx);
+    load([feat_path, datasets{i}.name, '_', feat_name, 'Feature.mat']);
+    feat = feat(idx, :);
+    age = datasets{i}.age(idx);
+    gender = datasets{i}.gender(idx);
     for j = train_set
         fprintf('Train on %s, Test on %s\n',  datasets{j}.name, datasets{i}.name);
         [age_performance(i,j,1), age_performance(i,j,2), age_performance(i,j,3), age_performance(i,j,4)] ...
-            = AgeGenderEvaluationTest(feat, datasets{i}.age(idx), datasets{i}.gender(idx), datasets{j}.age_model);
+            = AgeGenderEvaluationTest(feat, age, gender, datasets{j}.age_model);
     end
 end
 

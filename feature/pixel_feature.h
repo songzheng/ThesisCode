@@ -157,6 +157,8 @@ void PixelFeature(FloatMatrix * img, FloatMatrix * feat, PixelFeatureOpt * opt)
 // feature select function
 int PixelFeatureSelect(PixelFeatureOpt * opt)
 {   
+	opt->func_init = NULL;
+	opt->func_proc = NULL;
     if(!strcmp(opt->name, "PixelGray8N"))
     {        
         opt->func_init = InitPixelGray8N;
@@ -167,8 +169,8 @@ int PixelFeatureSelect(PixelFeatureOpt * opt)
     
     if(!strcmp(opt->name, "PixelGray4N"))
     {        
-        opt->func_init = InitPixelGray8N;
-        opt->func_proc = FuncPixelGray8N;
+        opt->func_init = InitPixelGray4N;
+        opt->func_proc = FuncPixelGray4N;
         return 1;
     }
     

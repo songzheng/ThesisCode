@@ -35,7 +35,8 @@ for i = 1:length(dataset.image_names)
             face = rgb2gray(face);
         end
                 
-        feat(i,:) = opts.func_feat(face, opts);
+        feat(i,:) = opts.func_feat(face, opts) + opts.func_feat(face(:, end:-1:1), opts);
+        feat(i,:) = feat(i,:)/sqrt(sum(feat(i,:).^2)+eps);
         nface = nface + 1;
     end
 end

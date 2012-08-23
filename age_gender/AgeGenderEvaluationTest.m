@@ -20,7 +20,7 @@ end
 
 test_res = zeros(ntest, 1);
 
-for i = model.splits
+for i = model.splits_id
     div_idx = find(test_split == i);
     if ~isempty(div_idx)
         test_res(div_idx) = LinearRegressionTest(feature(div_idx, :), model.submodel{i});

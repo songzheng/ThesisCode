@@ -78,6 +78,42 @@ inline void FuncCodingPixelHOG (float * data, float * coding, int * coding_bin, 
     coding_bin[1] = (bint+1)%num_ori;
 }
 
+//  histogram of oriented gradient
+void InitCodingPixelHOGHalfSphere(CodingOpt * opt)
+{
+    opt->length_input = 5;
+    opt->block_num = 2;
+    opt->block_size = 1;
+    ASSERT(opt->nparam == 1);   
+    opt->length = (int)opt->param[0];          
+}
+
+inline void FuncCodingPixelHOGHalfSphere (float * data, float * coding, int * coding_bin, const CodingOpt * opt)
+{        
+    float gx, gy ;
+    float angle, mod, nt, rbint ;
+    int bint ;
+            
+    int num_ori = opt->length;
+    
+    gy = 0.5f * (data[2] - data[0]);
+    gx = 0.5f * (data[1] - data[3]);
+    
+    /* angle and modulus */
+    angle = vl_fast_atan2_f (gy,gx) ;
+    mod = vl_fast_sqrt_f (gx*gx + gy*gy) ;
+    
+    /* quantize angle */
+    nt = vl_mod_2pi_f (angle) * float(num_ori) / VL_PI ;
+    bint = vl_floor_f (nt) ;
+    rbint = nt - bint ;        
+    
+    coding[0] = (float)(1 - rbint) * mod;    
+    coding_bin[0] = bint%num_ori;
+    coding[1] = (float)(rbint) * mod;    
+    coding_bin[1] = (bint+1)%num_ori;
+}
+
 // hog of UoC
 
 static double uu[9] = {1.0000, 
@@ -400,6 +436,10 @@ void Coding(FloatMatrix * data, FloatSparseMatrix * coding, CodingOpt * opt)
 
 int CodingSelect(CodingOpt * opt)
 {
+
+	opt->func_init = NULL;
+	opt->func_proc = NULL;
+
     if(!strcmp(opt->name, "CodingPixelHOG"))
     {        
         opt->func_init = InitCodingPixelHOG;
@@ -407,7 +447,13 @@ int CodingSelect(CodingOpt * opt)
         return 1;
     }
     
-    
+    if(!strcmp(opt->name, "CodingPixelHOGHalfSphere"))
+    {        
+        opt->func_init = InitCodingPixelHOGHalfSphere;
+        opt->func_proc = FuncCodingPixelHOGHalfSphere;
+        return 1;
+    }
+        
     if(!strcmp(opt->name, "CodingPixelLBP"))
     {        
         opt->func_init = InitCodingPixelLBP;

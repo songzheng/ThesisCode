@@ -6,7 +6,12 @@ switch name
     case 'HOG'        
         pixel_opt.name = 'PixelGray4N';
         pixel_opt.image_depth = 1;
-        pixel_coding_opt.name = 'CodingPixelHOG';
+        
+        if isfield(args, 'half_sphere') && args.half_sphere == 1
+            pixel_coding_opt.name = 'CodingPixelHOGHalfSphere';
+        else
+            pixel_coding_opt.name = 'CodingPixelHOG';
+        end
         
         % hog orientation
         if isfield(args, 'norient')        
@@ -31,7 +36,7 @@ switch name
         opt.size_x = sbin; 
         opt.size_y = sbin; 
         opt.func_feat = @ExtractFeature;
-        
+                
     otherwise
         error('Unsupport Feature');
 end
@@ -42,3 +47,9 @@ if isfield(args, 'cell_size')
     opt.length = opt.length * prod(opt.cell_size);
 end
     
+
+if isfield(args, 'scales')
+    opt.scales = args.scales;
+else
+    opt.scales = 1;
+end

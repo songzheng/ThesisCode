@@ -1,27 +1,24 @@
 
 addpath baseline
 %% patch HOG
-norient = 18;
+norient = 9;
 sbin = 16;
 
 % pixel_coding_opt.param = norient;
-opt.size_x = sbin;
-opt.size_y = sbin;
+opts = FeatureInit('HOG', 'norient', norient, 'half_sphere', 1, 'sbin', sbin);
 
-func = str2func(['patch_feature_', opt.name]);
-
-im = imread('..\..\test\test.jpg');
+im = imread('..\test_data\test.jpg');
 im = rgb2gray(im);
 % func(im, [], opt);
-[feat_all, coordinate] = func(im, [], opt);
+[feat_all, coordinate] = patch_feature(im, [], opts);
 
 feat_all = bsxfun(@rdivide, feat_all, sqrt(sum(feat_all.^2)));
 feat_all = reshape(feat_all', [coordinate.num_y, coordinate.num_x, size(feat_all,1)]);
-feat_all = feat_all(:,:,1:9) + feat_all(:,:,10:end);
+% feat_all = feat_all(:,:,1:9) + feat_all(:, :, 10:18);
 % im = rgb2gray(im);
 
 % baseline
-im = imread('..\..\test\test.jpg');
+im = imread('..\test_data\test.jpg');
 feat_base = features_hog(double(im), 8);
 feat_base = feat_base(:, :, 1:9) + feat_base(:, :, 10:18) + feat_base(:, :, 19:27);
 figure(1);
