@@ -102,20 +102,20 @@ submodel = [];
 train_idx = [];
 
 if isfield(model, 'subspace_opt')
-    feature_proj = bsxfun(@minus, feature, model.mean) * model.projection;
-    feature_proj = bsxfun(@rdivide, feature_proj, sqrt(sum(feature_proj.^2, 2)) + eps);
+    feature = bsxfun(@minus, feature, model.mean) * model.projection;
+    feature = bsxfun(@rdivide, feature, sqrt(sum(feature.^2, 2)) + eps);
 end
 
 % train split model
 lambda = 1;
-for i = unique_splits
-    div_idx = find(label_split == i);
-    train_idx{i} = div_idx(:)';
-    if isfield(model, 'subspace_opt')
-        feature_train = feature_proj(train_idx{i}, :);
-    else
+if length(unique_splits) == 1
+    submodel{unique_splits} = LinearRegressionTrain(feature, label_age, lambda);
+else    
+    for i = unique_splits
+        div_idx = find(label_split == i);
+        train_idx{i} = div_idx(:)';
+        
         feature_train = feature(train_idx{i}, :);
+        submodel{i} = LinearRegressionTrain(feature_train, label_age(train_idx{i}), lambda);
     end
-    
-    submodel{i} = LinearRegressionTrain(feature_train, label_age(train_idx{i}), lambda);
 end

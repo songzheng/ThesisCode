@@ -5,9 +5,9 @@ if bProject
     % if ~isfield(model, 'subspace_opt')
     %     subspace_opt.k = 4;
     %     subspace_opt.beta = 0.05;
-    try
+    if ~isempty(model_path) && exist([model_path, '_subspace_model.mat'], 'file')
         load([model_path, '_subspace_model']);
-    catch
+    else
         subspace_opt.ReducedDim = 1500;
         %     subspace_opt.Regu = 1;
         %     subspace_opt.ReguAlpha = 0.1;
@@ -18,8 +18,9 @@ if bProject
         %     [model.projection, ~, model.mean] = LSDA(label_age+age_limit(2)*label_gender, subspace_opt, feature);
         % end
         [projection, ~, mean] = PCA(feat, subspace_opt);
-        subspace_opt = subspace_opt;
-        save([model_path, '_subspace_model'], 'projection', 'mean', 'subspace_opt');
+        if ~isempty(model_path)
+            save([model_path, '_subspace_model'], 'projection', 'mean', 'subspace_opt');
+        end
     end
     model.projection = projection;
     model.mean = mean;
@@ -27,20 +28,24 @@ if bProject
 end
 
 if bSplit
-    try
+    if ~isempty(model_path) && exist([model_path, '_split_model_proj', num2str(bProject), '.mat'], 'file')
         load([model_path, '_split_model_proj', num2str(bProject)]);
-    catch
+    else
         splitmodel = AgeGenderEvaluationTrainSplit(model, feat, age, gender, age_limit);
-        save([model_path, '_split_model_proj', num2str(bProject)], 'splitmodel');
+        if ~isempty(model_path)
+            save([model_path, '_split_model_proj', num2str(bProject)], 'splitmodel');
+        end
     end
     model.splitmodel = splitmodel;
 end
 
-try
+if ~isempty(model_path) && exist([model_path, '_sub_model_proj', num2str(bProject), '_split', num2str(bSplit), '.mat'], 'file')
     load([model_path, '_sub_model_proj', num2str(bProject), '_split', num2str(bSplit)]);
-catch
+else
     [submodel, splitsid] = AgeGenderEvaluationTrainSub(model, feat, age, gender, age_limit);
-    save([model_path, '_sub_model_proj', num2str(bProject), '_split', num2str(bSplit)], 'submodel', 'splitsid');
+    if ~isempty(model_path)
+        save([model_path, '_sub_model_proj', num2str(bProject), '_split', num2str(bSplit)], 'submodel', 'splitsid');
+    end
 end
 
 model.submodel = submodel;

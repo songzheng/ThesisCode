@@ -1,15 +1,16 @@
 
 function sel = SelectResult(det, score, left_right_rot, up_down_rot)
 
+sel = true(1, length(det));
+
 for i = 1:length(det)
     if isempty(det(i).det_conf)
+        sel(i) = false;
         det(i).det_conf = 0;
         det(i).part_conf = 0;
         det(i).rotation = [inf, inf, inf];
     end
 end
-
-sel = true(1, length(det));
 
 if ~isempty(score)
     sel = sel & (([det.det_conf] >= score(1)) & ([det.det_conf] <= score(2)));
@@ -29,4 +30,4 @@ if ~isempty(up_down_rot)
     sel = sel & ((rot(3, :) >= up_down_rot(1)) & (rot(3, :) <= up_down_rot(2)));
 end
 
-sel = double(sel(:));
+sel = sel(:);

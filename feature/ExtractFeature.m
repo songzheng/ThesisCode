@@ -16,10 +16,12 @@ points_all = cell(1, length(scales));
 for s = 1:length(scales)
     if ~isempty(points)
         p = int32([imag(points)-1; real(points)-1] * scales(s));
+        feature = patch_feature(imresize(im, scales(s)), p, opt);
     else
         p = [];
+        [feature, grids] = patch_feature(imresize(im, scales(s)), p, opt);
     end
-    [feature, grids] = patch_feature(imresize(im, scales(s)), p, opt);
+    
     feature = bsxfun(@rdivide, feature, sqrt(sum(feature.^2))+eps);
     
     if isempty(points)
