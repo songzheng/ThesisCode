@@ -8,12 +8,13 @@ target_scale = abs(target_land_mark(1) - target_land_mark(2));
 land_mark_id = [1,2];
 
 % mesh
-ex_contour = complex(zeros(1, 87), zeros(1,87));
+npoints = 87;
+ex_contour = complex(zeros(1, npoints), zeros(1,npoints));
 ex_mesh = GetFaceMesh(ex_contour);
 
 f = opts.func_feat(zeros(target_size, 'uint8'), opts, ex_mesh);
 fdim = length(f);
-feat = zeros(length(dataset.image_names), fdim, 'single');
+feat = zeros(length(dataset.image_names), fdim + npoints*2, 'single');
 
 mean_face = zeros(target_size);
 nface = 0;
@@ -56,10 +57,13 @@ for i = 1:length(dataset.image_names)
         face = rgb2gray(face);
     end
     
-    feat(i,:) = opts.func_feat(face, opts, face_mesh);
+    feat(i,1:fdim) = opts.func_feat(face, opts, face_mesh);
     
     %         + opts.func_feat(face(:, end:-1:1), opts);
-    %         feat(i,:) = feat(i,:)/sqrt(sum(feat(i,:).^2)+eps);
+    feat(i,1:fdim) = feat(i,1:fdim)/sqrt(sum(feat(i,1:fdim).^2)+eps);
+    contour = contour - mean(target_land_mark);
+    norm_contour = sqrt(sum(real(contour).^2) + sum(imag(contour).^2) + eps);
+    feat(i,fdim+1:end) = [real(contour)/norm_contour, imag(contour)/norm_contour];
     nface = nface + 1;
 end
 fprintf('\n');

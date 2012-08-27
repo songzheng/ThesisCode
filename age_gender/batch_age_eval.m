@@ -39,7 +39,7 @@ elseif strcmp(feat_name, 'HOG')
     opts = FeatureInit('HOG', 'norient', 16, 'half_sphere', 0, 'sbin', 8, 'scales', [1, 0.75, 0.5]);
 end
 
-for i = 1:5
+for i = 1:nset
     disp(names{i});
     datasets{i}.label_names = {'age', 'gender', 'OMRONFaceDetection'};
     datasets{i}.label_args = {[], [], {'alignment', 'score_max'}};
@@ -98,40 +98,48 @@ for i = train_set
     gender = datasets{i}.gender;
     tag = [datasets{i}.name, '_', feat_name, 'Feature', '_', align_name];
     
-    clear feat
-    load([feat_path, tag]);
     
     for f = 1:fold       
         fprintf('.');
-        train_split = [];
+        train_split{f} = [];
         ll = unique([age, gender], 'rows');
         for j = 1:size(ll,1)
             split_idx = find(age == ll(j,1) & gender == ll(j,2));
             split_idx = randsample(split_idx, round(length(split_idx)*0.5));
             
-            train_split = [train_split; split_idx];
+            train_split{f} = [train_split{f}; split_idx];
         end
         
-        test_split = setdiff(all_idx, train_split);
+        test_split{f} = setdiff(all_idx, train_split{f});
                 
-        fold_model = AgeGenderEvaluationTrain(feat(train_split, :), age(train_split), gender(train_split),...
+        clear feat
+        load([feat_path, tag]);
+        feat = feat(train_split{f}, :);
+        
+        fold_model{f} = AgeGenderEvaluationTrain(feat, age(train_split{f}), gender(train_split{f}),...
             bProject, bSplit, []);
         
-        [self_performance(f,1), self_performance(f,2), self_performance(f,3), self_performance(f,4)] ...
-            = AgeGenderEvaluationTest(feat(test_split, :), age(test_split), gender(test_split), fold_model);
         
     end
-        
+    
+    clear feat
+    load([feat_path, tag]);
+    
+    for f = 1:fold    
+        [self_performance(f,1), self_performance(f,2), self_performance(f,3), self_performance(f,4)] ...
+            = AgeGenderEvaluationTest(feat(test_split{f}, :), age(test_split{f}), gender(test_split{f}), fold_model{f});
+    end
     fprintf('\n');
     age_performance(i, i, :) = reshape(mean(self_performance,1), [1,1,4]);
     
-    feat = feat(all_idx, :);
-    datasets{i}.age_model = AgeGenderEvaluationTrain(feat, age(all_idx), gender(all_idx),...
-            bProject, bSplit, [model_path, tag]);
-
     fprintf('Train on %s, Test on %s\n\t MAE=%f, ACC = %f\n',...
         datasets{i}.name, datasets{i}.name,...
         age_performance(i,i,2), age_performance(i,i,3));
+    
+    % train overall model
+    feat = feat(all_idx, :);
+    datasets{i}.age_model = AgeGenderEvaluationTrain(feat, age(all_idx), gender(all_idx),...
+            bProject, bSplit, [model_path, tag]);
 end
     
 %% cross set evaluation
