@@ -1,5 +1,5 @@
 function [model, sv] = LinearMultiClassSVMTrain(label, feature, model)
-[nsample, dim] = size(feature);
+[dim, nsample] = size(feature);
 
 model.class_labels = setdiff(unique(label), 0);
 model.w = zeros(dim, length(model.class_labels));

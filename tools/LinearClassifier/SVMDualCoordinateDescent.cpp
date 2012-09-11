@@ -22,6 +22,12 @@ void randpermute(int * a, int n) {
     }
 }
 
+inline double dot(const double *x, const float *y, int dim) {
+    double res = 0;   
+    for(int i=0; i<dim; i++)
+        res += x[i]*y[i];
+    return res;
+}
 inline double dot(const double *x, const double *y, int dim) {
     double res = 0;   
     for(int i=0; i<dim; i++)
@@ -29,17 +35,17 @@ inline double dot(const double *x, const double *y, int dim) {
     return res;
 }
 
-inline void add(double *W, const double* x, const double da, int dim) {
+inline void add(double *W, const float* x, const double da, int dim) {
     for(int i=0; i<dim; i++)
-        W[i] += da*x[i];
+        W[i] += da*double(x[i]);
 }
 
-inline void sub(double *W, const double* x, const double da, int dim) {
+inline void sub(double *W, const float* x, const double da, int dim) {
     for(int i=0; i<dim; i++)
-        W[i] -= da*x[i];
+        W[i] -= da*double(x[i]);
 }
 
-void SVMDualCoordinateDescent(const double * X, const double * label, const double * Q, // data
+void SVMDualCoordinateDescent(const float * X, const double * label, const double * Q, // data
         const double * C, double lambda, // parameters
         double * alpha, double * w, double * b, double * loss, // model
         int num, int dim)
@@ -51,7 +57,7 @@ void SVMDualCoordinateDescent(const double * X, const double * label, const doub
     for (int ii = 0; ii < num; ii++) {
         int i = permute[ii];
         
-        const double *x = X + dim*i;
+        const float *x = X + dim*i;
         double Ci = C[i];
         
         if (Ci == 0)
@@ -89,7 +95,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
     
     // data
     const double  *label  = (double  *)mxGetPr(prhs[0]);
-    const double  *X  = (double   *)mxGetPr(prhs[1]);
+    const float  *X  = (float   *)mxGetPr(prhs[1]);
     
     // auxilary data
     const double  *Q  = (double  *)mxGetPr(mxGetField(prhs[2], 0, "Q"));

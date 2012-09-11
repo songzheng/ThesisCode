@@ -70,3 +70,9 @@ if useLcc
         error(lasterr) ;
     end
 end
+
+if useLcc
+    libs = lccImpLibPath ;
+else
+    libs = impLibPath ;
+end

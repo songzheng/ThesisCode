@@ -10,7 +10,7 @@ opts = FeatureInit('HOG', 'norient', norient, 'half_sphere', 1, 'sbin', sbin);
 im = imread('..\test_data\test.jpg');
 im = rgb2gray(im);
 % func(im, [], opt);
-[feat_all, coordinate] = patch_feature(im, [], opts);
+[feat_all, coordinate] = patch_feature_mex(im, [], opts);
 
 feat_all = bsxfun(@rdivide, feat_all, sqrt(sum(feat_all.^2)));
 feat_all = reshape(feat_all', [coordinate.num_y, coordinate.num_x, size(feat_all,1)]);
@@ -29,7 +29,7 @@ subplot(1,2,2);
 imshow(FeatureVisualizeDenseHOG(feat_base, [], 20))
 
 %% patch HOG speed test
-% HOG  0.0288 vs UoC HOG  0.0228s
+% HOG  0.0202 (dual core with open MP) vs UoC HOG  0.0228s
 norient = 18;
 sbin = 16;
 
@@ -43,22 +43,21 @@ opt.pixel_coding_opt = pixel_coding_opt;
 opt.size_x = sbin;
 opt.size_y = sbin;
 
-func = str2func(['patch_feature_', opt.name]);
-im = imread('..\..\test\test.jpg');
+im = imread('..\test_data\test.jpg');
 im = rgb2gray(im);
 tic;
 for i = 1:500
-    [feat_all, coordinate] = patch_feature_HOG(im, [], opt);
+    [feat_all, coordinate] = patch_feature_mex(im, [], opt);
     feat_all = bsxfun(@rdivide, feat_all, sqrt(sum(feat_all.^2)));
 end
 disp(toc/500);
 
-im = imread('..\..\test\test.jpg');
-tic;
-for i = 1:500
-    feat_base = features_hog(double(im), 8);
-end
-disp(toc/500);
+% im = imread('..\test_data\test.jpg');
+% tic;
+% for i = 1:500
+%     feat_base = features_hog(double(im), 8);
+% end
+% disp(toc/500);
 %% dsift
 addpath 'D:\My Documents\My Work\Util\vlfeat-0.9.14\toolbox'
 vl_setup;
@@ -82,12 +81,12 @@ disp(toc/100);
 
 
 %%
-load dsift_fk_ver21
-addpath 'D:\My Documents\My Work\Util\vlfeat-0.9.13\toolbox'
-vl_setup;
 addpath baseline
+addpath 'D:\My Documents\My Work\Util\vlfeat-0.9.13\toolbox'
+load dsift_fk_ver21
+vl_setup;
 
-im = imread('..\..\test\test.jpg');
+im = imread('..\test_data\test.jpg');
 [~, feature] = vl_dsift(single(rgb2gray(im)));
 feature = feature(:, 1:10000);
 feature = single(feature);
@@ -110,13 +109,12 @@ coding_opt.fv_codebook = codebook;
 
 % coding(feature, coding_opt);
 feature = single(feature);
-feat_all = coding(feature, coding_opt);
-idx = feat_all.i(1:7, :);
+feat_all = codingmex(feature, coding_opt);
 
-% 0.4943s for 1 thread, 0.2671s for 2 thread
+% 0.4943s for 1 thread, 0.2820s for 2 thread using OpenMP
 tic;
 for i = 1:100
-    feat_all = coding(feature, coding_opt);
+    feat_all = codingmex(feature, coding_opt);
 end
 disp(toc/100);
 

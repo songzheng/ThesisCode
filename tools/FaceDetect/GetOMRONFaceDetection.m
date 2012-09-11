@@ -21,10 +21,11 @@ switch type
     case 'alignment'
         tag = 'a';
     otherwise
+        error('unspecified type')
 end
 
 count = 0;
-name = datestr(now, 30);
+[~, name] = fileparts(tempname);
 fin = fopen([name, '.input'], 'w');
 for i = 1:numel(data)
     if isempty(data{i})
@@ -51,6 +52,7 @@ if(~fout)
     fprintf('Cannot obtain output result\n');
     return;
 end
+
 for i = 1:numel(data)
     line = fgetl(fout);
     % ensure file name match
@@ -98,6 +100,11 @@ for i = 1:numel(data)
             
 end
 fclose(fout);
+
+if ~exist('result', 'var')
+    result = [];
+end
+
 result = result(:);
 delete([name, '.input']);
 delete([name, '.output']);

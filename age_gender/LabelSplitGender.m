@@ -6,10 +6,17 @@ label_split = zeros(nsample, 1);
 % child
 label_split(label_age < 5) = 1;
 
-% gender
 label_split(label_age >= 5 & label_gender == 1) = 2;
 label_split(label_age >= 5 & label_gender == 2) = 3;
-
+% % gender
+% label_split(label_age >= 5 & label_age <35 & label_gender == 1) = 2;
+% label_split(label_age >= 5 & label_age <35 & label_gender == 2) = 3;
+% 
+% label_split(label_age >= 35 & label_age <55 & label_gender == 1) = 4;
+% label_split(label_age >= 35 & label_age <55 & label_gender == 2) = 5;
+% 
+% label_split(label_age >= 55 & label_gender == 1) = 6;
+% label_split(label_age >= 55 & label_gender == 2) = 7;
 
 % generate sub-class split
 

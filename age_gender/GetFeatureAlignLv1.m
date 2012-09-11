@@ -7,8 +7,8 @@ target_scale = abs(target_land_mark(1) - target_land_mark(2));
 land_mark_id = [1,2];
 
 f = opts.func_feat(zeros(target_size, 'uint8'), opts);
-fdim = length(f);
-feat = zeros(length(dataset.image_names), fdim, 'single');
+fdim = numel(f);
+feat = zeros(fdim, length(dataset.image_names), 'single');
 
 mean_face = zeros(target_size);
 nface = 0;
@@ -45,10 +45,8 @@ for i = 1:length(dataset.image_names)
         face = rgb2gray(face);
     end
     
-    feat(i,:) = opts.func_feat(face, opts)  ...  
-            + opts.func_feat(face(:, end:-1:1), opts);
-    
-    feat(i,:) = feat(i,:)/sqrt(sum(feat(i,:).^2)+eps);
+    ftmp = opts.func_feat(face, opts);
+    feat(:, i) = ftmp(:);
     nface = nface + 1;
 end
 fprintf('\n');

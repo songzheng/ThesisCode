@@ -6,30 +6,48 @@ vl_compile_init
 
 cur_dir = cd;
 common_tag = {
-% '-DTHREAD_MAX=4', ...    
+'-DTHREAD_MAX=2', ...    
+'-DOPEN_MP',...
 '-DMATLAB_COMPILE',...
 '-DWIN32',...
 ['-I' toolboxDir],   ...
 ['-I' vlDir],        ...
 '-I"..\header"',  ...
-'-O',                ...
+'-O',...
 '-outdir', cur_dir};
 
-%% pixel features
-file_name = 'pixel_feature';
-file_path = [file_name, '.cpp'];
-vl_compile_file;
+%% obj
+compile_file('image', common_tag, 1);
+compile_file('pixel_feature', common_tag, 1);
+compile_file('coding', common_tag, 1);
+compile_file('pooling', common_tag, 1);
+compile_file('patch_feature', common_tag, 1);
+ 
+%% mex
 
-%% patch features
-file_name = 'patch_feature';
-file_path = [file_name, '.cpp'];
-vl_compile_file;
+compile_file('coding_mex', common_tag, 0, {libs, 'image','coding'});
+compile_file('patch_feature_mex', common_tag, 0, {libs, 'image', 'coding', 'pixel_feature', 'pooling', 'patch_feature'});
 
-%% coding
+function compile_file(file, tag, gen_obj, libs)
+if ~exist('libs', 'var')
+    libs = {};
+end
 
-file_name = 'coding';
-file_path = [file_name, '.cpp'];
-vl_compile_file;
+file_path = [file, '.cpp'];
+fprintf('MEX %s\n', file);
+if gen_obj
+    tag = [tag, {'-c'}];
+end   
+
+for i = 1:length(libs)
+    [~,~,ext] = fileparts(libs{i});
+    if isempty(ext)
+        libs{i} = [libs{i}, '.obj'];
+    end
+end
+
+cmd = [tag, file_path, libs];
+mex(cmd{:});
 
 % --------------------------------------------------------------------
 function cp(src,dst)

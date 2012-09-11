@@ -1,5 +1,5 @@
 function [score, acc] = LinearBinarySVMTest(label, feature, model)
-score = feature * model.w + model.b;
+score = feature' * model.w + model.b;
 
 acc = 0;
 if ~isempty(label)

@@ -1,23 +1,39 @@
-function [submodel, unique_splits] = AgeGenderEvaluationTrainSub(model, feature, label_age, label_gender, age_limit)
+function model = AgeGenderEvaluationTrainSub(model, feature, label_age, label_gender)
 %% preparation
-nsample = size(feature,1);
-dim = size(feature,2);
+[dim, nsample] = size(feature);
 
 label_age = label_age(:);
 label_gender = label_gender(:);
-label_age = max(min(label_age, age_limit(2)), age_limit(1));
-label_age = label_age(:);
 
-if ~exist('model', 'var')
-    model = [];
+if isfield(model, 'subspacemodel')
+    feature = EvalSubspace(feature, model.subspacemodel);
 end
 
 if isfield(model, 'splitmodel')
-    label_split = model.splitmodel.func_split(label_age, label_gender);
+    label_split = model.func_split(label_age, label_gender);
 else
     label_split = ones(nsample,1);
 end
 
+%% train sub model
+unique_splits = unique(label_split);
+unique_splits = unique_splits(:)';
+model.submodel = [];
+train_idx = [];
+
+% train split model
+lambda = 1;
+if length(unique_splits) == 1
+    model.submodel{unique_splits} = LinearRegressionTrain(feature, label_age, lambda);
+else    
+    for i = unique_splits
+        div_idx = find(label_split == i);
+        train_idx{i} = div_idx(:)';
+        
+        feature_train = feature(:, train_idx{i});
+        model.submodel{i} = LinearRegressionTrain(feature_train, label_age(train_idx{i}), lambda);
+    end
+end
 
 
 
@@ -92,30 +108,3 @@ end
 %     mean(acc_split), std(acc_split), mean(MAE), std(MAE), mean(acc_age), std(acc_age), mean(acc_gender), std(acc_gender));
 % 
 % Performance = mean(Performance, 2);
-
-%% train overall model
-
-% train sub model
-unique_splits = unique(label_split);
-unique_splits = unique_splits(:)';
-submodel = [];
-train_idx = [];
-
-if isfield(model, 'subspace_opt')
-    feature = bsxfun(@minus, feature, model.mean) * model.projection;
-    feature = bsxfun(@rdivide, feature, sqrt(sum(feature.^2, 2)) + eps);
-end
-
-% train split model
-lambda = 1;
-if length(unique_splits) == 1
-    submodel{unique_splits} = LinearRegressionTrain(feature, label_age, lambda);
-else    
-    for i = unique_splits
-        div_idx = find(label_split == i);
-        train_idx{i} = div_idx(:)';
-        
-        feature_train = feature(train_idx{i}, :);
-        submodel{i} = LinearRegressionTrain(feature_train, label_age(train_idx{i}), lambda);
-    end
-end
