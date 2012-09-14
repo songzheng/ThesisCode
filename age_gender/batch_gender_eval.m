@@ -1,10 +1,7 @@
-
 %% train BIF models on frontal
 result_path = '..\..\data\Results\';
 names = {'FGNET', 'Morph1', 'Morph2', 'Yamaha', 'WebFace'};
 nset = length(names);
-
-train_set = [5];
 
 fold = 10;
 age_data_num = zeros(1,nset);

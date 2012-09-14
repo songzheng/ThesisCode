@@ -30,7 +30,9 @@ struct PixelFeatureOpt
     int length;      
     int margin; 
     
-    // feature grids
+    // feature grids/points
+    bool use_grids;
+    int * coord;
     Grids grids;
     int num;
 };
@@ -102,6 +104,76 @@ inline void FuncPixelGray4N(FloatImage *img, int x, int y, float * dst,
     dst[2] = *(p+1);
     dst[3] = *(p-img->height);
     dst[4] = *(p);
+}
+
+
+// raw gray pixel 8-N & 4-N
+inline void InitPixelGray4x4(PixelFeatureOpt * opt)
+{
+    opt->image_depth = 1;
+    opt->length = 16;
+    opt->margin = 2;
+}
+
+inline void FuncPixelGray4x4(FloatImage *img, int x, int y, float * dst,
+        PixelFeatureOpt * opt)
+{    
+    float * p = img->p + (x-1)*img->height + (y-1);
+    
+#pragma unroll
+    for(int i=0; i<4; i++)
+        for(int j=0; j<4; j++)
+            dst[i*4+j] = p[i*img->height+j];
+}
+
+// raw gray dct
+
+inline void dct4_1d(float * data, int stride)
+{
+    float in[4] = {data[0], data[stride], data[2*stride], data[3*stride]};
+    data[0] = in[0] + in[1] + in[2] + in[3];
+    data[0] /= 2;
+    
+    data[stride] = 0.6533*in[0] + 0.2706*in[1] - 0.2706*in[2] - 0.6533*in[3];
+    
+    data[2*stride] = in[0] - in[1] - in[2] + in[3];
+    data[2*stride] /= 2;
+    
+    data[3*stride] = 0.2706*in[0] - 0.6533*in[1] + 0.6533*in[2] - 0.2706*in[3];
+}
+
+
+inline void dct4_2d(float * data, int stride)
+{
+    dct4_1d(data, 1);
+    dct4_1d(data+stride, 1);
+    dct4_1d(data+2*stride, 1);
+    dct4_1d(data+3*stride, 1);
+        
+    dct4_1d(data, stride);
+    dct4_1d(data+1, stride);
+    dct4_1d(data+2, stride);
+    dct4_1d(data+3, stride);
+}
+
+inline void InitPixelGray4x4DCT(PixelFeatureOpt * opt)
+{
+    opt->image_depth = 1;
+    opt->length = 16;
+    opt->margin = 2;
+}
+
+inline void FuncPixelGray4x4DCT(FloatImage *img, int x, int y, float * dst,
+        PixelFeatureOpt * opt)
+{    
+    float * p = img->p + (x-1)*img->height + (y-1);
+    
+#pragma unroll
+    for(int i=0; i<4; i++)
+        for(int j=0; j<4; j++)
+            dst[i*4+j] = p[i*img->height+j];
+
+    dct4_2d(dst, 4);
 }
 
 // raw color pixel

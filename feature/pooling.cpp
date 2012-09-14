@@ -1,7 +1,5 @@
 #include "pooling.h"
 
-#define OPEN_MP
-#define THREAD_MAX 2
 #ifdef OPEN_MP
     #include <omp.h>
 #endif
@@ -37,11 +35,11 @@ void PoolingSpatial(FloatSparseMatrix * feat, const Grids * feat_grids,
     int n;
     
 #ifdef OPEN_MP
-    #pragma omp parallel default(none) private(n) shared(npool, feat, feat_pool, coord_pool, feat_grids, pool_size_x, pool_size_y, size_x, size_y, w)
+    #pragma omp parallel default(none) private(n) firstprivate(pool_size_x, pool_size_y, size_x, size_y, feat_grids) shared(npool, feat, feat_pool, coord_pool, w)
 #endif        
     {    
 #ifdef OPEN_MP
-        #pragma omp for
+        #pragma omp for schedule(static) nowait
 #endif               
         for(int n=0; n<npool; n++)
         {

@@ -1,59 +1,61 @@
-function [features_all, points_all] = ExtractFeature(im, opt, points)
+function [features_all, grids_all] = ExtractFeature(im, opt, sampling)
 
-if ~exist('points', 'var')
-    points = [];
+if opt.image_depth == 1 && size(im,3) == 3
+    im = rgb2gray(im);
 end
 
-
-% if opt.pixel_opt.image_depth == 1
-%     im = rgb2gray(im);
-% end
+if ~exist('sampling', 'var') || isempty(sampling)
+    sampling.format = 'grids';
+    sampling.scales = 1;
+end
 
 scales = opt.scales;
-features_all = cell(1, length(scales));
-points_all = cell(1, length(scales));
+if length(scales) > 1
+    features_all = cell(1, length(scales));
+    grids_all = cell(1, length(scales));
+end
+im_pyra = GetImagePyramid(im, scales);
 
 for s = 1:length(scales)
-    if ~isempty(points)
-        p = int32([imag(points)-1; real(points)-1] * scales(s));
-        feature = patch_feature(imresize(im, scales(s)), p, opt);
+    
+    if strcmp(sampling.format, 'points')
+        p = int32([imag(sampling.points)-1; real(sampling.points)-1] * scales(s));    
+        feature = opt.func_feat(im_pyra{s}, opt, p);
+        grids = [];
+    elseif strcmp(sampling.format, 'grids')
+        [feature, grids] = opt.func_feat(im_pyra{s}, opt);
+        grids.step_x = grids.step_x/scales(s);
+        grids.step_y = grids.step_y/scales(s);
     else
-        p = [];
-        [feature, grids] = patch_feature(imresize(im, scales(s)), p, opt);
+        error('Unsupport Sampling');
     end
-    
-    feature = bsxfun(@rdivide, feature, sqrt(sum(feature.^2))+eps);
-    
-    if isempty(points)
-        if isfield(opt, 'cell_size')
+                
+    if strcmp(sampling.format, 'grids') 
+        if isfield(sampling, 'cell_size')
             cell_size = opt.cell_size;
-        else
-            cell_size = [1,1];
-        end
-        
-        [px, py] = meshgrid(grids.start_x + (0:(grids.num_x-cell_size(2)))*grids.step_x + (cell_size(2)-1)/2*grids.step_x, ...
-            grids.start_y + (0:(grids.num_y-cell_size(1)))*grids.step_y + (cell_size(1)-1)/2*grids.step_y);
-        p = complex(px(:)'+1, py(:)'+1);
-        
-        if any(cell_size > 1)
-            feature_tmp = reshape(feature, [size(feature,1), grids.num_y, grids.num_x]);
+            
+            feature_old = reshape(feature, [size(feature,1), grids.num_y, grids.num_x]);
             feature = zeros(prod(cell_size)*size(feature,1), grids.num_y-cell_size(1)+1, grids.num_x-cell_size(2)+1);
+            
+            grids.num_y = grids.num_y-cell_size(1)+1;
+            grids.num_x = grids.num_x-cell_size(2)+1;
             
             istart = 0;
             for ix = 1:cell_size(2)
                 for iy = 1:cell_size(1)
-                    feature(istart+1:istart+size(feature_tmp,1), :, :) = feature_tmp(:, iy:iy+grids.num_y-cell_size(1), ix:ix+grids.num_x-cell_size(2));
-                    istart = istart + size(feature_tmp,1);
+                    feature(istart+1:istart+size(feature_old,1), :, :) = feature_old(:, iy:iy+grids.num_y-1, ix:ix+grids.num_x-1);
+                    istart = istart + size(feature_old,1);
                 end
             end
-            
-            %         feature = reshape(feature, [size(feature,1), size(feature,2)*size(feature,3)]);
         end
-        
+        feature = reshape(feature, [size(feature,1), grids.num_y, grids.num_x]);
+    end        
+    
+    if length(scales) > 1
+        features_all{s} = feature;
+        grids_all{s} = grids;
+    else
+        features_all = feature;
+        grids_all = grids;
     end
-    features_all{s} = feature(:)';
-    points_all{s} = p;
 end
-
-features_all = cell2mat(features_all);
-points_all = cell2mat(points_all);

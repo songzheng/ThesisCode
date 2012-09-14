@@ -24,7 +24,7 @@ if ~exist('patch_size','var') || isempty(patch_size)
 end
 
 if ~exist('margin_size','var') || isempty(margin_size)
-    margin_size=[20,5];
+    margin_size=max(round(patch_size/10),[2,2]);
 end
 
 image_size=patch_layout.*patch_size+(patch_layout).*margin_size;

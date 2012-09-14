@@ -1,6 +1,6 @@
 function compile_all
 if ~exist('vlfeat_dir', 'var')
-    vlfeat_dir = 'D:\My Documents\My Work\Util\vlfeat-0.9.14\toolbox';
+    vlfeat_dir = '..\tools\vlfeat\toolbox';
 end
 vl_compile_init
 
@@ -10,6 +10,7 @@ common_tag = {
 '-DOPEN_MP',...
 '-DMATLAB_COMPILE',...
 '-DWIN32',...
+'-f', '".\mexopts.bat"',...
 ['-I' toolboxDir],   ...
 ['-I' vlDir],        ...
 '-I"..\header"',  ...
@@ -25,6 +26,7 @@ compile_file('patch_feature', common_tag, 1);
  
 %% mex
 
+compile_file('pixel_feature_mex', common_tag, 0, {libs, 'image', 'pixel_feature'});
 compile_file('coding_mex', common_tag, 0, {libs, 'image','coding'});
 compile_file('patch_feature_mex', common_tag, 0, {libs, 'image', 'coding', 'pixel_feature', 'pooling', 'patch_feature'});
 

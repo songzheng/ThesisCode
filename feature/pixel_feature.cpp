@@ -3,26 +3,44 @@
 #include <vl/imopv.h>
 
 
+Grids CalculatePixelGrids(FloatImage * img, int margin)
+{    
+    // default dense rectangle pooling     
+    Grids g;
+    
+    g.start_x = margin;
+    g.step_x = 1;
+    g.num_x = img->width - margin*2;
+    
+    g.start_y = margin;
+    g.step_y = 1;
+    g.num_y = img->height - margin*2;
+    
+    return g;
+}
 // *********************************//
 // entry
 
 void InitPixelFeature(FloatMatrix * img, PixelFeatureOpt * opt)
 {
+#ifdef PIXEL_FEATURE_NAME
+    FUNC_INIT(opt);
+#else
     opt->func_init(opt);
-
+#endif
+    
     ASSERT(img->depth == opt->image_depth);    
     
-    Grids * grids = &opt->grids;
-    
-    grids->start_x = opt->margin;
-    grids->step_x = 1;
-    grids->num_x = img->width-opt->margin*2;
-    
-    grids->start_y = opt->margin;
-    grids->step_y = 1;
-    grids->num_y = img->height-opt->margin*2;
-    
-    opt->num = grids->num_x * grids->num_y;
+    if (opt->use_grids)
+    {
+        opt->grids = CalculatePixelGrids(img, opt->margin);
+        opt->coord = NULL;
+        opt->num = opt->grids.num_x * opt->grids.num_y;
+    }
+    else        
+    {
+        ASSERT(opt->coord != NULL && opt->num != 0);
+    }   
     
 //     mexPrintf("%d, %d, %d, %d, %d\n", img->depth, opt->image_depth, opt->height, opt->width, opt->margin);
 }
@@ -34,27 +52,40 @@ void InitPixelFeature(FloatMatrix * img, PixelFeatureOpt * opt)
 
 void PixelFeature(FloatMatrix * img, FloatMatrix * feat, PixelFeatureOpt * opt)
 {        
-    Grids * grids = &opt->grids;
     float * dst = feat->p;
-    int x;
+    int * coord = NULL;
+    
+    if(opt->use_grids)
+        coord = NewCoordianteFromGrids(&opt->grids);
+    else
+        coord = opt->coord;
+    
+    int n;
         
-    #if defined(OPEN_MP) && defined(THREAD_MAX)
-        omp_set_num_threads(THREAD_MAX);
-    #endif        
+#if defined(OPEN_MP) && defined(THREAD_MAX)
+    omp_set_num_threads(THREAD_MAX);
+#endif        
             
 #ifdef OPEN_MP
-    #pragma omp parallel default(none) private(x) shared(grids, img, dst, opt)
+    #pragma omp parallel default(none) private(n) shared(coord, img, dst, opt)
 #endif
     {
 #ifdef OPEN_MP
-        #pragma omp for
+        #pragma omp for schedule(static) nowait
 #endif
-        for (x = grids->start_x ; x < grids->start_x+grids->num_x ; ++ x) {        
-            for (int y = grids->start_y ; y < grids->start_y+grids->num_y ; ++ y) {            
-                opt->func_proc(img, x, y, dst+((x-grids->start_x)*grids->num_y+y-grids->start_y)*opt->length, opt);       
-            }
-        }   
+         for(n =0; n<opt->num; n++)
+         {
+            int y = coord[2*n], x = coord[2*n+1];
+#ifdef PIXEL_FEATURE_NAME
+            FUNC_PROC(PIXEL_FEATURE_NAME)(img, x, y, dst+n*opt->length, opt);
+#else
+            opt->func_proc(img, x, y, dst+n*opt->length, opt);       
+#endif
+        }
     }
+
+    if(opt->use_grids)
+        FREE(coord);
 }
 // #undef OPEN_MP
 
@@ -78,6 +109,20 @@ int PixelFeatureSelect(PixelFeatureOpt * opt)
         return 1;
     }
     
+    if(!strcmp(opt->name, "PixelGray4x4"))
+    {
+        opt->func_init = InitPixelGray4x4;
+        opt->func_proc = FuncPixelGray4x4;
+        return 1;
+    }
+    
+    
+    if(!strcmp(opt->name, "PixelGray4x4DCT"))
+    {
+        opt->func_init = InitPixelGray4x4DCT;
+        opt->func_proc = FuncPixelGray4x4DCT;
+        return 1;
+    }
     
     if(!strcmp(opt->name, "PixelColor"))
     {        
@@ -113,15 +158,15 @@ void MatReadPixelFeatureOpt(const mxArray * mat_opt, PixelFeatureOpt * opt)
         opt->nparam = mxGetNumberOfElements(mxGetField(mat_opt, 0, "param"));
     }    
     
-// #ifdef PIXEL_FEATURE_NAME
-//     opt->func_init = FUNC_INIT(PIXEL_FEATURE_NAME);
-//     opt->func_proc = FUNC_PROC(PIXEL_FEATURE_NAME);
-// #else
+#ifdef PIXEL_FEATURE_NAME
+    opt->func_init = NULL;
+    opt->func_proc = NULL;
+#else
     if(!PixelFeatureSelect(opt))
     {
         mexPrintf("%s\n", opt->name);
         mexErrMsgTxt("Pixel feature is not implemented");
     }
-// #endif
+#endif
 }
 #endif

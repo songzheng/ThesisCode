@@ -2,11 +2,27 @@
 
 // ***************************** //
 
+Grids CalculatePatchGrids(FloatImage * img, int size_y, int size_x, int step_y, int step_x)
+{    
+    // default dense rectangle pooling     
+    Grids g;
+    
+    g.start_x = size_x/2;
+    g.start_y = size_y/2;
+    g.step_x = step_x;
+    g.step_y = step_y;
+    g.num_x = int(1.0 * (img->width-1-g.start_x) / g.step_x) + 1;
+    g.num_y = int(1.0 * (img->height-1-g.start_y) / g.step_y) + 1;
+    
+    return g;
+}
+
 // entry function for patch feature
 void InitPatchFeature(FloatImage * img, PatchFeatureOpt * opt)
 {    
     if(opt->use_pixel_feature)
     {
+        opt->pixel_opt.use_grids = true;
         InitPixelFeature(img, &opt->pixel_opt);
         InitCoding(&opt->pixel_coding_opt);
     
@@ -15,17 +31,18 @@ void InitPatchFeature(FloatImage * img, PatchFeatureOpt * opt)
     }
     else
     {
+#ifdef PATCH_FEATURE_NAME
+        FUNC_PROC(PATCH_FEATURE_NAME)(img, opt);
+#else
     	opt->func_init(img, opt);
+#endif
     }
     
     if(opt->use_grids)
     {
         opt->coord = NULL;
-        if(opt->num == 0)
-        {            
-            opt->grids = CalculateGrids(img, opt->size_y, opt->size_x, opt->size_y/2, opt->size_x/2);
-            opt->num = opt->grids.num_x * opt->grids.num_y;
-        }
+        opt->grids = CalculatePatchGrids(img, opt->size_y, opt->size_x, opt->size_y/2, opt->size_x/2);
+        opt->num = opt->grids.num_x * opt->grids.num_y;
     }
     else
     {

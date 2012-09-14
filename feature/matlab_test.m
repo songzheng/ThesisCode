@@ -1,19 +1,13 @@
 
-addpath baseline
 %% patch HOG
-norient = 9;
-sbin = 16;
-
-% pixel_coding_opt.param = norient;
-opts = FeatureInit('HOG', 'norient', norient, 'half_sphere', 1, 'sbin', sbin);
+addpath baseline
+opt = InitializeFeature('PatchHOG', 'sbin', 16, 'norient', 9, 'half_sphere', 1);
 
 im = imread('..\test_data\test.jpg');
 im = rgb2gray(im);
 % func(im, [], opt);
-[feat_all, coordinate] = patch_feature_mex(im, [], opts);
+[feat_all, grids] = ExtractFeature(im, opt);
 
-feat_all = bsxfun(@rdivide, feat_all, sqrt(sum(feat_all.^2)));
-feat_all = reshape(feat_all', [coordinate.num_y, coordinate.num_x, size(feat_all,1)]);
 % feat_all = feat_all(:,:,1:9) + feat_all(:, :, 10:18);
 % im = rgb2gray(im);
 
@@ -24,40 +18,36 @@ feat_base = feat_base(:, :, 1:9) + feat_base(:, :, 10:18) + feat_base(:, :, 19:2
 figure(1);
 clf;
 subplot(1,2,1);
-imshow(FeatureVisualizeDenseHOG(feat_all, [], 20));
+imshow(FeatureVisualizeDenseHOG(permute(feat_all, [2,3,1]), [], 20));
 subplot(1,2,2);
 imshow(FeatureVisualizeDenseHOG(feat_base, [], 20))
 
 %% patch HOG speed test
-% HOG  0.0202 (dual core with open MP) vs UoC HOG  0.0228s
-norient = 18;
-sbin = 16;
+% HOG  0.0202 (2 thread with open MP)  0.0313 (1 thread) vs UoC HOG  0.0228s
 
-% pixel_coding_opt.param = norient;
-pixel_opt.name = 'PixelGray4N';
-pixel_coding_opt.name = 'CodingPixelHOG';
-pixel_coding_opt.param = norient;
-opt.name = 'HOG';
-opt.pixel_opt = pixel_opt;
-opt.pixel_coding_opt = pixel_coding_opt;
-opt.size_x = sbin;
-opt.size_y = sbin;
+addpath baseline
+opt = InitializeFeature('PatchHOG', 'sbin', 16, 'norient', 9, 'half_sphere', 1);
 
 im = imread('..\test_data\test.jpg');
 im = rgb2gray(im);
 tic;
 for i = 1:500
-    [feat_all, coordinate] = patch_feature_mex(im, [], opt);
-    feat_all = bsxfun(@rdivide, feat_all, sqrt(sum(feat_all.^2)));
+    [feat_all, grids] = ExtractFeature(im, opt);
 end
 disp(toc/500);
 
-% im = imread('..\test_data\test.jpg');
-% tic;
-% for i = 1:500
-%     feat_base = features_hog(double(im), 8);
-% end
-% disp(toc/500);
+im = imread('..\test_data\test.jpg');
+tic;
+for i = 1:500
+    feat_base = features_hog(double(im), 8);
+end
+disp(toc/500);
+%% patch appearance VQ test
+opt = InitializeFeature('PixelGray4x4DCT');
+im = imread('..\test_data\test.jpg');
+[feat_all, grids] = ExtractFeature(im, opt);
+
+
 %% dsift
 addpath 'D:\My Documents\My Work\Util\vlfeat-0.9.14\toolbox'
 vl_setup;

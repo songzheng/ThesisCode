@@ -26,7 +26,7 @@ struct FisherVectorCodeBook
     int nDim, nBase;
     
     const double * priors;
-    const double * mu; // dim nBase
+    const double * base; // dim nBase
     const double * sigma; // dim nDim x nBase
     
     // derived precomputed variables
@@ -35,6 +35,14 @@ struct FisherVectorCodeBook
     const double * invSigma; // dim nDim x nBase
     const double * sqrtInvSigma; // dim nDim x nBase
     const double * sumLogSigma; // dim nBase
+};
+
+struct VectorQuantizationCodeBook
+{
+    int nDim, nBase, nReducedDim;
+    const double * base;
+    const double * projection;
+    const double * mean;
 };
 
 struct CodingOpt{
@@ -49,7 +57,7 @@ struct CodingOpt{
     union
     {
         FisherVectorCodeBook fv_codebook;
-        //VQCodeBook vq_codebook;
+        VectorQuantizationCodeBook vq_codebook;
     };
     
     int length_input;
@@ -61,7 +69,6 @@ struct CodingOpt{
             
 };
 
-
 // ********************************* //
 
 // pixel-level manual coding
@@ -72,7 +79,8 @@ inline void InitCodingPixelHOG(CodingOpt * opt)
     opt->block_num = 2;
     opt->block_size = 1;
     ASSERT(opt->nparam == 1);   
-    opt->length = (int)opt->param[0];          
+    opt->length = (int)opt->param[0];       
+    
 }
 
 inline void FuncCodingPixelHOG (float * data, float * coding, int * coding_bin, const CodingOpt * opt)
@@ -91,7 +99,7 @@ inline void FuncCodingPixelHOG (float * data, float * coding, int * coding_bin, 
     mod = vl_fast_sqrt_f (gx*gx + gy*gy) ;
     
     /* quantize angle */
-    nt = vl_mod_2pi_f (angle) * float(num_ori / (2*VL_PI)) ;
+    nt = vl_mod_2pi_f (angle) * float(num_ori / opt->param[1]) ;
     bint = vl_floor_f (nt) ;
     rbint = nt - bint ;        
     
@@ -101,41 +109,6 @@ inline void FuncCodingPixelHOG (float * data, float * coding, int * coding_bin, 
     coding_bin[1] = (bint+1)%num_ori;
 }
 
-//  histogram of oriented gradient
-inline void InitCodingPixelHOGHalfSphere(CodingOpt * opt)
-{
-    opt->length_input = 5;
-    opt->block_num = 2;
-    opt->block_size = 1;
-    ASSERT(opt->nparam == 1);   
-    opt->length = (int)opt->param[0];          
-}
-
-inline void FuncCodingPixelHOGHalfSphere (float * data, float * coding, int * coding_bin, const CodingOpt * opt)
-{        
-    float gx, gy ;
-    float angle, mod, nt, rbint ;
-    int bint ;
-            
-    int num_ori = opt->length;
-    
-    gy = 0.5f * (data[2] - data[0]);
-    gx = 0.5f * (data[1] - data[3]);
-    
-    /* angle and modulus */
-    angle = vl_fast_atan2_f (gy,gx) ;
-    mod = vl_fast_sqrt_f (gx*gx + gy*gy) ;
-    
-    /* quantize angle */
-    nt = vl_mod_2pi_f (angle) * float(num_ori) / VL_PI ;
-    bint = vl_floor_f (nt) ;
-    rbint = nt - bint ;        
-    
-    coding[0] = (float)(1 - rbint) * mod;    
-    coding_bin[0] = bint%num_ori;
-    coding[1] = (float)(rbint) * mod;    
-    coding_bin[1] = (bint+1)%num_ori;
-}
 
 // hog of UoC
 
@@ -226,66 +199,6 @@ inline void FuncCodingPixelLBP(float * data, float * coding, int * coding_bin, c
        
     coding[0] = 1;
     coding_bin[0] = LBP59_Map[bitString];
-}
-
-// *************************************** //
-// Vector Quantization
-
-inline void FuncCodingVQ (float * data, float * coding, int * coding_bin, const CodingOpt * opt)
-{
-}
-
-inline void FuncCodingPQ (float * data, float * coding, int * coding_bin, const CodingOpt * opt)
-{
-}
-
-// *************************************** //
-// Fisher Vector
-
-// Binary heap operation
-inline void UpHeap(double * ele, int * ele_idx, int * heap_size, double ele_new, int idx_new)
-{ 
-    int i;
-    for (i = ++(*heap_size); i>1 && ele[i/2-1] > ele_new; i/=2)
-    {
-        ele[i-1] = ele[i/2-1];
-        ele_idx[i-1] = ele_idx[i/2-1];
-    }
-
-    ele[i-1] = ele_new;
-    ele_idx[i-1] = idx_new;
-}
-
-inline void DownHeap(double * ele, int * idx, int * heap_size)
-{
-    int i, child;
-    
-    if ((*heap_size) == 0) {
-        return;
-    }
-    
-    double ele_min = ele[0];
-    double ele_last = ele[(*heap_size)-1];
-    int idx_last = idx[(*heap_size)-1];
-    (*heap_size)--;
-    
-    for (i = 1; i*2 <= *heap_size; i=child) {
-        /* Find smaller child */
-        child = i * 2;
-        if (child != *heap_size && ele[child] < ele[child-1])
-            child++;
-        
-        /* Percolate one level */
-        if (ele_last > ele[child-1])
-        {
-            ele[i-1] = ele[child-1];
-            idx[i-1] = idx[child-1];
-        }
-        else
-            break;
-    }
-    ele[i-1] = ele_last;
-    idx[i-1] = idx_last;
 }
 
 #ifdef MATLAB_COMPILE

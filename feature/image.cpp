@@ -97,22 +97,6 @@ int * NewCoordianteFromGrids(Grids * grids)
     return ret;    
 }
 
-Grids CalculateGrids(FloatImage * img, int size_y, int size_x, int step_y, int step_x)
-{    
-    // default dense rectangle pooling     
-    Grids g;
-    
-    g.start_x = size_x/2;
-    g.start_y = size_y/2;
-    g.step_x = step_x;
-    g.step_y = step_y;
-    g.num_x = int(1.0 * (img->width-1-g.start_x) / g.step_x) + 1;
-    g.num_y = int(1.0 * (img->height-1-g.start_y) / g.step_y) + 1;
-    
-    return g;
-}
-
-
 // ***********************************************************************/
 // matlab interfaces
 #ifdef MATLAB_COMPILE

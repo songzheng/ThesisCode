@@ -14,7 +14,19 @@ names = {'FGNET', 'Morph1', 'Morph2', 'Yamaha', 'WebFace'};
 nset = length(names);
 datasets = cell(1, nset);
 
-feat_name = 'HOG';
+train_set = [5];
+test_set = [5];
+
+for i = union(train_set, test_set)
+    disp(names{i});
+    datasets{i}.label_names = {'age', 'gender', 'OMRONFaceDetection'};
+    datasets{i}.label_args = {[], [], {'alignment', 'score_max'}};
+    datasets{i}.name = names{i};
+    datasets{i} = LoadDataset(datasets{i});
+                
+end
+
+feat_name = 'Appearance';
 
 if strcmp(feat_name, 'BIF')    
     addpath BIFfeature\
@@ -35,28 +47,27 @@ if strcmp(feat_name, 'BIF')
     
 elseif strcmp(feat_name, 'HOG')
     opts = FeatureInit('HOG', 'norient', 16, 'half_sphere', 0, 'sbin', 8, 'scales', [1, 0.75, 0.5]);
+elseif strcmp(feat_name, 'Appearance')
+    opts = InitializeFeature('PatchAppearance',...
+        'codebook_name', 'WebFace',...
+        'codebook_size', 100,...
+        'reduced_dim', 10,...
+        'sbin', 8, ...
+        'scales', 1, ...
+        'dataset', datasets{5});    
 end
 
-for i = 1:nset
-    disp(names{i});
-    datasets{i}.label_names = {'age', 'gender', 'OMRONFaceDetection'};
-    datasets{i}.label_args = {[], [], {'alignment', 'score_max'}};
-    datasets{i}.name = names{i};
-    datasets{i} = LoadDataset(datasets{i});
-                
-end
 align_names = {'AlignLv0', 'AlignLv1', 'AlignLv2'};
 
-for j = 1:length(align_names)
+for j = 3
     align_name = align_names{j}
 
-    for i = 1:nset
+    for i = union(train_set, test_set)
         tag = [datasets{i}.name, '_', feat_name, 'Feature', '_', align_name];
 
         if ~exist([feat_path, tag, '.mat'], 'file')
-            func = str2func(['GetFeature', align_name]);
             clear feat;
-            feat = func(datasets{i}, target_size, opts);
+            feat = BatchGetFaceFeature(datasets{i}, align_name, opts);
             save([feat_path, tag], 'feat', '-v7.3');
         end
     end

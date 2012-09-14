@@ -1,3 +1,4 @@
+addpath ..\DetectionCommon\
 figure(1)
 load('..\PartBasedDetectionModels\bus_final');
 
@@ -64,4 +65,4 @@ else
 end
 
 clf;
-show_boxes_class(im, boxes1(1:min(4, size(boxes1,1)), 1:4));
+show_boxes_class(im, boxes1(1:min(4, size(boxes1,1)), 1:5));

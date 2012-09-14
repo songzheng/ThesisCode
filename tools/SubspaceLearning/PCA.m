@@ -57,9 +57,7 @@ if issparse(data)
 end
 sampleMean = mean(data,1);
 data_mean = sampleMean;
-data = (data - repmat(sampleMean,nSmp,1));
-
-
+data = bsxfun(@minus, data, sampleMean);
 
 if nFea/nSmp > 1.0713
     % This is an efficient method which computes the eigvectors of

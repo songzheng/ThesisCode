@@ -1,26 +1,123 @@
 #include "coding.h"
+// helper functions
 
-#ifdef MATLAB_COMPILE
-// matlab helper function
-void MatReadFisherVectorCodebook(const mxArray * mat_opt, FisherVectorCodeBook * opt)
-{
-    if ((mat_opt) == NULL)
-        return;
-    
-    COPY_SCALAR_FIELD(opt, nDim, int);
-    COPY_SCALAR_FIELD(opt, nBase, int);
-    COPY_MATRIX_FIELD(opt, priors, double);
-    COPY_MATRIX_FIELD(opt, mu, double);
-    COPY_MATRIX_FIELD(opt, sigma, double);
-    COPY_MATRIX_FIELD(opt, sqrtPrior, double);
-    COPY_MATRIX_FIELD(opt, sqrt2Prior, double);
-    COPY_MATRIX_FIELD(opt, invSigma, double);
-    COPY_MATRIX_FIELD(opt, sqrtInvSigma, double);
-    COPY_MATRIX_FIELD(opt, sumLogSigma, double);
-//     mexPrintf("%d, %d, %f, %f\n", opt->nDim, opt->nBase, opt->priors[0], opt->mu[0]);
+inline void Projection(float * src, float * dst, const double * projection, const double * mean, int nDim, int nReducedDim)
+{    
+    float norm = 0;
+    for(int i=0; i<nReducedDim; i++)
+    {
+        dst[i] = 0;
+        for(int j=0; j<nDim; j++)
+            dst[i] += (src[j]-mean[j]) * projection[j + i*nDim];
+        norm += dst[i] * dst[i];
+    }
+    norm =  vl_fast_sqrt_f(norm);
+    for(int i=0; i<nReducedDim; i++)
+        dst[i] /= norm;
 }
 
-#endif
+
+// *************************************** //
+// Vector Quantization
+
+void InitCodingVectorQuantization (CodingOpt * opt)
+{
+    opt->length_input = opt->vq_codebook.nDim;
+    // sparse block #
+    opt->block_num = 1;
+    opt->block_size = 1;
+    opt->length = opt->vq_codebook.nBase;
+}
+void FuncCodingVectorQuantization (float * data, float * coding, int * coding_bin, const CodingOpt * opt)
+{
+    int nBase = opt->vq_codebook.nBase;
+    int nReducedDim = opt->vq_codebook.nReducedDim;
+    int nDim = opt->vq_codebook.nDim;
+    
+    int min_base = -1;
+    int min_dist = 0;
+    const double * base = opt->vq_codebook.base;
+    const double * projection = opt->vq_codebook.projection;
+    const double * mean = opt->vq_codebook.mean;
+    
+    float * data_to_encode;
+    if(nReducedDim > 0)
+    {
+        data_to_encode = new float[nReducedDim];
+        Projection(data, data_to_encode, projection, mean, nDim, nReducedDim);
+        nDim = nReducedDim;     
+    }
+    else
+    {
+        data_to_encode = data;
+    }
+    
+    for(int i=0; i<nBase; i++)
+    {
+        float dist = 0;
+        for(int j=0; j<nDim; j++)
+            dist += (data_to_encode[j] - base[j+i*nDim]) * (data_to_encode[j] - base[j+i*nDim]);
+        
+        if(min_base == -1 || dist < min_dist)
+        {
+            min_dist = dist;
+            min_base = i;
+        }
+    }
+    
+    coding[0] = 1;
+    coding_bin[0] = min_base;
+    if(nReducedDim > 0)
+        delete[] data_to_encode;
+}
+// *************************************** //
+// Fisher Vector
+
+// Binary heap operation
+inline void UpHeap(double * ele, int * ele_idx, int * heap_size, double ele_new, int idx_new)
+{ 
+    int i;
+    for (i = ++(*heap_size); i>1 && ele[i/2-1] > ele_new; i/=2)
+    {
+        ele[i-1] = ele[i/2-1];
+        ele_idx[i-1] = ele_idx[i/2-1];
+    }
+
+    ele[i-1] = ele_new;
+    ele_idx[i-1] = idx_new;
+}
+
+inline void DownHeap(double * ele, int * idx, int * heap_size)
+{
+    int i, child;
+    
+    if ((*heap_size) == 0) {
+        return;
+    }
+    
+    double ele_min = ele[0];
+    double ele_last = ele[(*heap_size)-1];
+    int idx_last = idx[(*heap_size)-1];
+    (*heap_size)--;
+    
+    for (i = 1; i*2 <= *heap_size; i=child) {
+        /* Find smaller child */
+        child = i * 2;
+        if (child != *heap_size && ele[child] < ele[child-1])
+            child++;
+        
+        /* Percolate one level */
+        if (ele_last > ele[child-1])
+        {
+            ele[i-1] = ele[child-1];
+            idx[i-1] = idx[child-1];
+        }
+        else
+            break;
+    }
+    ele[i-1] = ele_last;
+    idx[i-1] = idx_last;
+}
 
 void InitCodingFisherVector(CodingOpt * opt)
 {
@@ -41,7 +138,7 @@ void FuncCodingFisherVector (float * data, float * coding, int * coding_bin, con
     // codebook data
     const FisherVectorCodeBook * cb = &opt->fv_codebook;
     int nDim = cb->nDim, nBase = cb->nBase;
-    const double * mu = cb->mu, *priors = cb->priors,
+    const double * base = cb->base, *priors = cb->priors,
             * invSigma = cb->invSigma, 
             * sqrtInvSigma = cb->sqrtInvSigma,
             * sumLogSigma = cb->sumLogSigma;
@@ -58,7 +155,7 @@ void FuncCodingFisherVector (float * data, float * coding, int * coding_bin, con
     for (int i=0; i<nBase; i++){
         probtemp = sumLogSigma[i];
         for (int k=0; k<nDim; k++)            
-            probtemp += ((double)data[k]-mu[indi+k])*((double)data[k]-mu[indi+k])*invSigma[indi+k];
+            probtemp += ((double)data[k]-base[indi+k])*((double)data[k]-base[indi+k])*invSigma[indi+k];
                  
         probtemp *= -0.5;  
         indi = indi+nDim;
@@ -97,7 +194,7 @@ void FuncCodingFisherVector (float * data, float * coding, int * coding_bin, con
                 sqrt_2_prior = cb->sqrt2Prior[bin];
         
         for (int k=0; k<nDim; k++){
-            double diff = (data[k]-mu[bin*nDim+k]);
+            double diff = (data[k]-base[bin*nDim+k]);
             //  temp = sign(temp)*MIN(maxsqrtSigma[i*nDim+k],fabs(temp));
 #ifdef FIRST_ORDER
             coding[i*nDim+k] = (float)(prob_val[i]*diff*sqrtInvSigma[bin*nDim+k]/sqrt_prior);
@@ -112,131 +209,51 @@ void FuncCodingFisherVector (float * data, float * coding, int * coding_bin, con
     delete [] prob_bin;
 }
 
+#ifdef MATLAB_COMPILE
+// matlab helper function
+void MatReadVectorQuantizationCodebook(const mxArray * mat_opt, VectorQuantizationCodeBook * opt)
+{
+    if ((mat_opt) == NULL)
+        return;
+    
+    COPY_SCALAR_FIELD(opt, nDim, int);
+    COPY_SCALAR_FIELD(opt, nBase, int);
+    COPY_SCALAR_FIELD(opt, nReducedDim, int);
+    COPY_MATRIX_FIELD(opt, base, double);
+    COPY_MATRIX_FIELD(opt, projection, double);
+    COPY_MATRIX_FIELD(opt, mean, double);
+//     mexPrintf("%d, %d, %f, %f\n", opt->nDim, opt->nBase, opt->priors[0], opt->base[0]);
+}
+
+void MatReadFisherVectorCodebook(const mxArray * mat_opt, FisherVectorCodeBook * opt)
+{
+    if ((mat_opt) == NULL)
+        return;
+    
+    COPY_SCALAR_FIELD(opt, nDim, int);
+    COPY_SCALAR_FIELD(opt, nBase, int);
+    COPY_MATRIX_FIELD(opt, priors, double);
+    COPY_MATRIX_FIELD(opt, base, double);
+    COPY_MATRIX_FIELD(opt, sigma, double);
+    COPY_MATRIX_FIELD(opt, sqrtPrior, double);
+    COPY_MATRIX_FIELD(opt, sqrt2Prior, double);
+    COPY_MATRIX_FIELD(opt, invSigma, double);
+    COPY_MATRIX_FIELD(opt, sqrtInvSigma, double);
+    COPY_MATRIX_FIELD(opt, sumLogSigma, double);
+//     mexPrintf("%d, %d, %f, %f\n", opt->nDim, opt->nBase, opt->priors[0], opt->base[0]);
+}
+
+#endif
 // ********************************* //
 
 void InitCoding(CodingOpt * opt)
 {
+#ifdef CODING_NAME
+    FUNC_INIT(CODING_NAME)(opt);
+#else
     opt->func_init(opt);
+#endif
 }
-
-// #ifndef THREAD_MAX
-// // normal version
-// void Coding(FloatMatrix * data, FloatSparseMatrix * coding, CodingOpt * opt)
-// {
-//     float * p = data->p;
-//     float * coding_val = coding->p;
-//     int * coding_bin = coding->i;
-//     int block_stride = opt->block_size * opt->block_num;
-//     int block_num = opt->block_num;
-//     
-//     for(int n=0; n<data->width; n++){
-//         opt->func_proc(p, coding_val, coding_bin, opt); 
-//         p += opt->length_input;
-//         coding_val += block_stride;
-//         coding_bin += block_num;
-//     }
-// }
-// 
-// #else
-// // MT version
-// struct CodingMTArgs
-// {
-//     FloatMatrix *data;
-//     FloatSparseMatrix *coding;
-//     int start;
-//     int end;
-//     const CodingOpt * opt;
-// };
-// 
-// // thread function
-// #if defined(WIN32)
-// DWORD WINAPI
-// #elif defined(__UNIX__)  
-// void *
-// #endif 
-// CodingThread(
-// #if defined(WIN32)
-//         LPVOID 
-// #elif defined(__UNIX__)   
-//         void *
-// #endif
-//         args_in)
-// {
-//     CodingMTArgs * args = (CodingMTArgs *) args_in;
-//     FloatMatrix * data = args->data;
-//     FloatSparseMatrix * coding = args->coding;
-//     const CodingOpt * opt = args->opt;
-//     int start = args->start;
-//     int end = args->end;
-//     
-//     int block_stride = opt->block_size * opt->block_num;
-//     int block_num = opt->block_num;
-//     
-//     float * p = data->p + start*opt->length_input;
-//     float * coding_val = coding->p + start*block_stride;
-//     int * coding_bin = coding->i + start*block_num;
-//     //printf("%d, %d, %d, %d\n", data->width, opt->length_input, block_num, block_stride);
-// 	//return 0;
-// 	
-//     for(int n=start; n<=end; n++){
-//         opt->func_proc(p, coding_val, coding_bin, opt);   
-//         p += opt->length_input;
-//         coding_val += block_stride;
-//         coding_bin += block_num;
-//     }
-// 
-// 	return 0;
-// }
-// 
-// // thread caller
-// void Coding(FloatMatrix * data, FloatSparseMatrix * coding, CodingOpt * opt)
-// {
-// #if defined(WIN32) 
-//     HANDLE  hThreadArray[THREAD_MAX];
-// #elif defined(__UNIX__)   
-//     pthread_t hThreadArray[THREAD_MAX];
-// #endif
-//     
-//     CodingMTArgs thread_arg[THREAD_MAX];
-//     int ntask = data->width;
-//     int task_per_thread = (int)ceil(1.0*ntask/THREAD_MAX);
-//     
-// 	//mexPrintf("%d, %d, %d, %d, %d, %d\n", ntask, task_per_thread, THREAD_MAX, block_num, block_stride, opt->length_input);
-// 	//return;
-//     
-//     for(int t=0; t<THREAD_MAX; t++)
-//     {
-//         int task_start = t*task_per_thread;
-//         int task_num = MIN(task_per_thread, ntask-task_start);
-//         
-//         // assign input
-//         thread_arg[t].data = data;        
-//         thread_arg[t].coding = coding;
-//         thread_arg[t].opt = opt;
-//         thread_arg[t].start = task_start;
-//         thread_arg[t].end = task_start + task_num - 1;        
-//         
-//         // launch thread
-// #if defined(WIN32) 
-//         hThreadArray[t] = CreateThread(NULL, 0, CodingThread, &thread_arg[t], 0, NULL);
-// #elif defined(__UNIX__)   
-//         pthread_create(&hThreadArray[t], NULL, CodingThread, (void *)&thread_arg[t])
-// #endif
-//         
-//     }    
-//     
-// #if defined(WIN32) 
-//     WaitForMultipleObjects(THREAD_MAX, hThreadArray, TRUE, INFINITE);
-// #elif defined(__UNIX__) 
-//     void * status;
-//     for(int t=0; t<THREAD_MAX; t++) 
-//         pthread_join(hThreadArray[t], &status);
-// #endif
-// 
-// }
-// 
-// #endif
-
 
 #ifdef OPEN_MP
     #include <omp.h>
@@ -261,13 +278,20 @@ void Coding(FloatMatrix * data, FloatSparseMatrix * coding, CodingOpt * opt)
 #endif
     {
 #ifdef OPEN_MP
-        #pragma omp for
+        #pragma omp for schedule(static) nowait
 #endif
         for(n=0; n<ndata; n++){
+#ifdef CODING_NAME
+            FUNC_PROC(CODING_NAME)(p + n*opt->length_input,
+                    coding_val + n*block_stride,
+                    coding_bin + n*block_num,
+                    opt); 
+#else
             opt->func_proc(p + n*opt->length_input,
                     coding_val + n*block_stride,
                     coding_bin + n*block_num,
                     opt); 
+#endif
         }
     }
 }
@@ -284,14 +308,7 @@ int CodingSelect(CodingOpt * opt)
         opt->func_proc = FuncCodingPixelHOG;
         return 1;
     }
-    
-    if(!strcmp(opt->name, "CodingPixelHOGHalfSphere"))
-    {        
-        opt->func_init = InitCodingPixelHOGHalfSphere;
-        opt->func_proc = FuncCodingPixelHOGHalfSphere;
-        return 1;
-    }
-        
+            
     if(!strcmp(opt->name, "CodingPixelLBP"))
     {        
         opt->func_init = InitCodingPixelLBP;
@@ -299,6 +316,12 @@ int CodingSelect(CodingOpt * opt)
         return 1;
     }
     
+    if(!strcmp(opt->name, "CodingVectorQuantization"))
+    {
+        opt->func_init = InitCodingVectorQuantization;
+        opt->func_proc = FuncCodingVectorQuantization;
+        return 1;        
+    }
     
     if(!strcmp(opt->name, "CodingFisherVector"))
     {        
@@ -334,18 +357,19 @@ void MatReadCodingOpt(const mxArray * mat_opt, CodingOpt * opt)
     }
     
     
-// #ifdef CODING_NAME
-//     opt->func_init = FUNC_INIT(CODING_NAME);
-//     opt->func_proc = FUNC_PROC(CODING_NAME);
-// #else
+#ifdef CODING_NAME
+    opt->func_init = NULL;
+    opt->func_proc = NULL;
+#else
     if(!CodingSelect(opt))
     {        
         mexPrintf("%s\n", opt->name);
         mexErrMsgTxt("Coding method is not implemented");
     }
-// #endif    
+#endif    
     
     // get codebook
     MatReadFisherVectorCodebook(mxGetField(mat_opt, 0, "fv_codebook"), &opt->fv_codebook);    
+    MatReadVectorQuantizationCodebook(mxGetField(mat_opt, 0, "vq_codebook"), &opt->vq_codebook);    
 }
 #endif
