@@ -3,16 +3,17 @@
 addpath baseline
 opt = InitializeFeature('PatchHOG', 'sbin', 16, 'norient', 9, 'half_sphere', 1);
 
-im = imread('..\test_data\test.jpg');
+im = imread('../test_data/test.jpg');
 im = rgb2gray(im);
 % func(im, [], opt);
 [feat_all, grids] = ExtractFeature(im, opt);
+feat_all = bsxfun(@rdivide, feat_all, sqrt(sum(feat_all.^2, 1))+eps);
 
 % feat_all = feat_all(:,:,1:9) + feat_all(:, :, 10:18);
 % im = rgb2gray(im);
 
 % baseline
-im = imread('..\test_data\test.jpg');
+im = imread('../test_data/test.jpg');
 feat_base = features_hog(double(im), 8);
 feat_base = feat_base(:, :, 1:9) + feat_base(:, :, 10:18) + feat_base(:, :, 19:27);
 figure(1);
@@ -28,7 +29,7 @@ imshow(FeatureVisualizeDenseHOG(feat_base, [], 20))
 addpath baseline
 opt = InitializeFeature('PatchHOG', 'sbin', 16, 'norient', 9, 'half_sphere', 1);
 
-im = imread('..\test_data\test.jpg');
+im = imread('../test_data/test.jpg');
 im = rgb2gray(im);
 tic;
 for i = 1:500
@@ -36,7 +37,7 @@ for i = 1:500
 end
 disp(toc/500);
 
-im = imread('..\test_data\test.jpg');
+im = imread('../test_data/test.jpg');
 tic;
 for i = 1:500
     feat_base = features_hog(double(im), 8);
@@ -77,7 +78,7 @@ load dsift_fk_ver21
 vl_setup;
 
 im = imread('..\test_data\test.jpg');
-[~, feature] = vl_dsift(single(rgb2gray(im)));
+[ignore, feature] = vl_dsift(single(rgb2gray(im)));
 feature = feature(:, 1:10000);
 feature = single(feature);
 feature = bsxfun(@rdivide, feature, sqrt(sum(feature.^2))+eps);

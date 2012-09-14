@@ -575,7 +575,7 @@ vlmxCreateArrayFromVlArray (VlArray const * x)
 {
   mwSize dimensions [VL_ARRAY_MAX_NUM_DIMENSIONS] ;
   mxArray * array = NULL ;
-  mxClassID classId = mxClassID(0) ;
+  mxClassID classId = 0 ;
   vl_uindex d ;
   vl_size numElements = vl_array_get_num_elements(x) ;
   vl_size numDimensions  = vl_array_get_num_dimensions(x) ;
@@ -584,7 +584,7 @@ vlmxCreateArrayFromVlArray (VlArray const * x)
   vl_size typeSize = vl_get_type_size(type) ;
 
   for (d = 0 ; d < numDimensions ; ++d) {
-    dimensions[d] = mwSize(xdimensions[d]) ;
+    dimensions[d] = xdimensions[d] ;
   }
 
   switch (type) {

@@ -1,6 +1,7 @@
 #ifndef IMAGE_H
 #define IMAGE_H
 
+#include <string.h>
 #include <vl/mathop.h>
 #include <vl/imopv.h>
 

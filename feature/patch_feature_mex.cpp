@@ -1,13 +1,12 @@
 
-#include <mexutils.h>
 #include "patch_feature.h"
 
 // Patch-level feature coding extraction
-// •	HOG
-// •	LBP
-// •	BIF
-// •	Color Histogram
-// •	Learning based descriptor
+// ï¿½	HOG
+// ï¿½	LBP
+// ï¿½	BIF
+// ï¿½	Color Histogram
+// ï¿½	Learning based descriptor
 // Input: Image
 // Output: Dense Patch Feature
 

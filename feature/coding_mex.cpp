@@ -1,14 +1,10 @@
 
-#include <mex.h>
-#include <math.h>
-#include <string.h>
-
 #include "coding.h"
 
 // feature coding from dense to sparse
-// •	VQ / PQ
-// •	Fisher Vector
-// •	Pixel coding 
+// ï¿½	VQ / PQ
+// ï¿½	Fisher Vector
+// ï¿½	Pixel coding 
 // Input: Dense feature in columns
 // Output: Sparse coded feature in  columns
 

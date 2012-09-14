@@ -1,14 +1,13 @@
-#include <mexutils.h>
-#define MATLAB_COMPILE
+
 #include "pixel_feature.h"
 
 
 // Raw pixel coding extraction
-// •	Raw Pixel (Color / Gray) "PixelGray8N" "PixelGray4N" "PixelColor"
-// •	Local Normalized Pixel (center-surround)
-// •	Gradient
-// •	High Order Moment
-// •	Linear Filter
+// ï¿½	Raw Pixel (Color / Gray) "PixelGray8N" "PixelGray4N" "PixelColor"
+// ï¿½	Local Normalized Pixel (center-surround)
+// ï¿½	Gradient
+// ï¿½	High Order Moment
+// ï¿½	Linear Filter
 // Input: Image
 // Output: Dense Image Feature
 

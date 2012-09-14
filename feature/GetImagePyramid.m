@@ -2,7 +2,7 @@ function im_pyra = GetImagePyramid(image, scales)
 
 im_pyra = cell(1, length(scales));
 
-[~, order] = sort(scales, 'descend');
+[ignore, order] = sort(scales, 'descend');
 
 
 for i = 1:length(scales)

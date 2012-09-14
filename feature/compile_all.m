@@ -1,16 +1,16 @@
 function compile_all
 if ~exist('vlfeat_dir', 'var')
-    vlfeat_dir = '..\tools\vlfeat\toolbox';
+    vlfeat_dir = '../tools/vlfeat/toolbox';
 end
 vl_compile_init
 
 cur_dir = cd;
 common_tag = {
-'-DTHREAD_MAX=2', ...    
+'-DTHREAD_MAX=4', ...    
 '-DOPEN_MP',...
 '-DMATLAB_COMPILE',...
 '-DWIN32',...
-'-f', '".\mexopts.bat"',...
+'-f', mexopt_file,...
 ['-I' toolboxDir],   ...
 ['-I' vlDir],        ...
 '-I"..\header"',  ...
@@ -42,9 +42,16 @@ if gen_obj
 end   
 
 for i = 1:length(libs)
-    [~,~,ext] = fileparts(libs{i});
+    [path,name,ext] = fileparts(libs{i});
     if isempty(ext)
-        libs{i} = [libs{i}, '.obj'];
+        if ~isempty(path)
+            path = [path, '/'];
+        end
+        if ispc
+            libs{i} = [path, name, '.obj'];
+        else isunix
+            libs{i} = [path, name, '.o'];
+        end
     end
 end
 
