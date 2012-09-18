@@ -52,11 +52,14 @@ points = GetFaceMesh(contour);
 sampling.format = 'points';
 sampling.points = points;
 
-f = ExtractFeature(image, opts, sampling);
+f = ExtractFeature(face, opts, sampling);
+if iscell(f)
+    f = cell2mat(f);
+end
 f = bsxfun(@rdivide, f, sqrt(sum(f.^2,1))+eps);
-f = f(:)/size(f,2);
+f = f(:)/(sqrt(sum(f(:).^2))+eps);
 
-points = points - target_center;
-norm = sqrt(sum(real(points).^2) + sum(imag(points).^2) + eps);
+contour = contour - target_center;
+norm = sqrt(sum(real(contour).^2) + sum(imag(contour).^2)) + eps;
 
-f = [f; real(points)'/norm; imag(points)'/norm];
+f = [f; real(contour)'/norm; imag(contour)'/norm];

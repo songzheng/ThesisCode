@@ -1,12 +1,12 @@
 
 clear;
-addpath ..\tools
-addpath(genpath('..\tools'));
-addpath ..\feature\
-addpath ..\..\data
+addpath ../tools
+addpath(genpath('../tools'));
+addpath ../feature/
+addpath ../../data
 
-feat_path = '..\..\data\features\';
-model_path = '..\..\data\models\';
+feat_path = '../../data/features/';
+model_path = '../../data/models/';
 
 target_size = [80,80];
 
@@ -14,8 +14,8 @@ names = {'FGNET', 'Morph1', 'Morph2', 'Yamaha', 'WebFace'};
 nset = length(names);
 datasets = cell(1, nset);
 
-train_set = [5];
-test_set = [5];
+train_set = [4];
+test_set = [4];
 
 for i = union(train_set, test_set)
     disp(names{i});
@@ -26,10 +26,10 @@ for i = union(train_set, test_set)
                 
 end
 
-feat_name = 'Appearance';
+feat_name = 'HOG';
 
 if strcmp(feat_name, 'BIF')    
-    addpath BIFfeature\
+    addpath BIFfeature/
     
     % config pooling window
     patch_size = [4, 8];
@@ -46,7 +46,7 @@ if strcmp(feat_name, 'BIF')
     opts = BIFMaxPoolInit(opts);
     
 elseif strcmp(feat_name, 'HOG')
-    opts = FeatureInit('HOG', 'norient', 16, 'half_sphere', 0, 'sbin', 8, 'scales', [1, 0.75, 0.5]);
+    opts = InitializeFeature('PatchHOG', 'norient', 16, 'half_sphere', 0, 'sbin', 8, 'scales', [1, 0.75, 0.5]);
 elseif strcmp(feat_name, 'Appearance')
     opts = InitializeFeature('PatchAppearance',...
         'codebook_name', 'WebFace',...
@@ -67,9 +67,9 @@ for j = 3
 
         if ~exist([feat_path, tag, '.mat'], 'file')
             clear feat;
-            feat = BatchGetFaceFeature(datasets{i}, align_name, opts);
+            feat = GetFaceFeature(datasets{i}, align_name, opts);
             save([feat_path, tag], 'feat', '-v7.3');
         end
     end
-    batch_gender_eval;
+    agegender_eval
 end

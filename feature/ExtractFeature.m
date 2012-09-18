@@ -6,7 +6,6 @@ end
 
 if ~exist('sampling', 'var') || isempty(sampling)
     sampling.format = 'grids';
-    sampling.scales = 1;
 end
 
 scales = opt.scales;

@@ -78,9 +78,8 @@ inline void InitCodingPixelHOG(CodingOpt * opt)
     opt->length_input = 5;
     opt->block_num = 2;
     opt->block_size = 1;
-    ASSERT(opt->nparam == 1);   
-    opt->length = (int)opt->param[0];       
-    
+    ASSERT(opt->nparam == 2);   
+    opt->length = (int)opt->param[0];      
 }
 
 inline void FuncCodingPixelHOG (float * data, float * coding, int * coding_bin, const CodingOpt * opt)
@@ -99,7 +98,7 @@ inline void FuncCodingPixelHOG (float * data, float * coding, int * coding_bin, 
     mod = vl_fast_sqrt_f (gx*gx + gy*gy) ;
     
     /* quantize angle */
-    nt = vl_mod_2pi_f (angle) * float(num_ori / opt->param[1]) ;
+    nt = vl_mod_2pi_f (angle) * float(num_ori) / opt->param[1] ;
     bint = vl_floor_f (nt) ;
     rbint = nt - bint ;        
     

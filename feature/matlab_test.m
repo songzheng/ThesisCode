@@ -45,10 +45,13 @@ end
 disp(toc/500);
 %% patch appearance VQ test
 opt = InitializeFeature('PixelGray4x4DCT');
-im = imread('..\test_data\test.jpg');
+im = imread('../test_data/test.jpg');
 [feat_all, grids] = ExtractFeature(im, opt);
 
-
+opt = InitializeFeature('PixelGray4x4Rot');
+im = imread('../test_data/test.jpg');
+[feat_all, grids] = ExtractFeature(im, opt);
+feat_all = reshape(feat_all, [size(feat_all,1), size(feat_all,2)*size(feat_all,3)]);
 %% dsift
 addpath 'D:\My Documents\My Work\Util\vlfeat-0.9.14\toolbox'
 vl_setup;

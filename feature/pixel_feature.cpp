@@ -116,6 +116,12 @@ int PixelFeatureSelect(PixelFeatureOpt * opt)
         return 1;
     }
     
+    if(!strcmp(opt->name, "PixelGray4x4Rot"))
+    {
+        opt->func_init = InitPixelGray4x4Rot;
+        opt->func_proc = FuncPixelGray4x4Rot;
+        return 1;
+    }
     
     if(!strcmp(opt->name, "PixelGray4x4DCT"))
     {

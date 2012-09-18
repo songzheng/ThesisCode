@@ -49,7 +49,7 @@ if ~isfield(model, 'agemodel') || ~isfield(model, 'gendermodel')
     
     lambda = 1;
     model.agemodel = LinearRegressionTrain(feat, label_age, lambda);
-    lambda = 10;
+    lambda = 1;
     feat = feat(:, label_gender ~= 0);
     model.gendermodel = LinearRegressionTrain(feat, label_gender(label_gender ~= 0), lambda);    
     

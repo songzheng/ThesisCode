@@ -106,6 +106,127 @@ inline void FuncPixelGray4N(FloatImage *img, int x, int y, float * dst,
     dst[4] = *(p);
 }
 
+// raw gray pixel with rotation & flip awareness
+
+inline void swap_f(float *a, float *b)
+{
+    float tmp = *a;
+    *a = *b;
+    *b = tmp;
+}
+
+inline void swap4_f(float *a0, float *a1, float * a2, float * a3)
+{
+    float tmp = *a0;
+    *a0 = *a1;
+    *a1 = *a2;
+    *a2 = *a3;
+    *a3 = tmp;
+}
+
+inline void flip4x4(float * data)
+{    
+    swap_f(data, data+12);      swap_f(data+4, data+8); 
+    swap_f(data+1, data+13);    swap_f(data+5, data+9);
+    swap_f(data+2, data+14);    swap_f(data+6, data+10); 
+    swap_f(data+3, data+15);    swap_f(data+7, data+11);
+}
+
+inline void rotate4x4_cw90(float * data)
+{    
+    swap4_f(data, data+3, data+15, data+12);        swap4_f(data+4, data+2, data+11, data+13);
+    swap4_f(data+1, data+7, data+14, data+8);      swap4_f(data+5, data+6, data+10, data+9);
+}
+
+inline void rotate4x4_180(float * data)
+{    
+    swap_f(data, data+15);      swap_f(data+4, data+11); 
+    swap_f(data+1, data+14);    swap_f(data+5, data+10);
+    swap_f(data+2, data+13);    swap_f(data+6, data+9); 
+    swap_f(data+3, data+12);    swap_f(data+7, data+8);
+}
+
+inline void rotate4x4_cc90(float * data)
+{    
+    swap4_f(data, data+12, data+15, data+3);        swap4_f(data+4, data+13, data+11, data+2);
+    swap4_f(data+1, data+8, data+14, data+7);      swap4_f(data+5, data+9, data+10, data+6);
+}
+
+
+inline void InitPixelGray4x4Rot(PixelFeatureOpt * opt)
+{
+    opt->image_depth = 1;
+    opt->length = 18;
+    opt->margin = 2;
+}
+
+inline void FuncPixelGray4x4Rot(FloatImage *img, int x, int y, float * dst,
+        PixelFeatureOpt * opt)
+{    
+    float * p = img->p + (x-1)*img->height + (y-1);
+#pragma unroll
+    for(int i=0; i<4; i++)
+        for(int j=0; j<4; j++)
+            dst[i*4+j] = p[i*img->height+j];
+    
+    float sum[4];
+    
+    sum[0] = p[0]+p[1]+p[4]+p[5];   sum[1] = p[8]+p[9]+p[12]+p[13];   
+    sum[3] = p[2]+p[3]+p[6]+p[7];   sum[2] = p[10]+p[11]+p[14]+p[15];
+    
+    // find larget region
+    int id_largest = 0;
+    float val_largest = sum[0];
+    
+    if(sum[1] > sum[0])
+    {
+        id_largest = 1;  
+        val_largest = sum[1];
+    }
+    
+    if(sum[2] > val_largest)
+    {
+        id_largest = 2;
+        val_largest = sum[2];
+    }
+        
+    if(sum[3] > val_largest)
+    {
+        id_largest = 3;
+    }
+    
+    // find neigbour region
+    int id_prev = (id_largest+3)%4;
+    int id_next = (id_largest+1)%4;
+    
+    // decide flip and rotation
+    int flip = sum[id_prev]<sum[id_next]?0:1;    
+    int rot = id_largest ^ flip;
+    
+    if(flip)
+        flip4x4(dst);
+    
+    switch(rot)
+    {
+        case 0:
+            break;
+        case 1:
+            rotate4x4_cc90(dst);
+            break;
+        case 2:
+            rotate4x4_180(dst);
+            break;
+        case 3:
+            rotate4x4_cw90(dst);
+            break;
+        default:
+            ASSERT(false);            
+    }
+    
+    dst[16] = float(rot);
+    dst[17] = float(flip);
+}
+
 
 // raw gray pixel 8-N & 4-N
 inline void InitPixelGray4x4(PixelFeatureOpt * opt)
@@ -125,6 +246,7 @@ inline void FuncPixelGray4x4(FloatImage *img, int x, int y, float * dst,
         for(int j=0; j<4; j++)
             dst[i*4+j] = p[i*img->height+j];
 }
+
 
 // raw gray dct
 

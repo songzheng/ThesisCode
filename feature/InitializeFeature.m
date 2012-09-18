@@ -68,7 +68,12 @@ switch name
     case 'PixelGray4x4'
         opt.length = 16;
         opt.image_depth = 1;
-        opt.func_visualize = @VisualizePixelGray4x4;
+        opt.func_visualize = @VisualizePixelGray4x4;        
+        
+    case 'PixelGray4x4Rot'
+        opt.length = 18;
+        opt.image_depth = 1;
+        opt.func_visualize = @VisualizePixelGray4x4Rot;
         
     case 'PixelGray4x4DCT'
         opt.length = 16;
