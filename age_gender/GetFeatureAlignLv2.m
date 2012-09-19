@@ -1,5 +1,7 @@
-function f = GetFeatureAlignLv2(image, det, opts)
+function feat = GetFeatureAlignLv2(image, det, opts)
 
+% level 1 alignment, using face key points
+% config alignment
 % introduce larger face area to include all alignment landmarks
 target_size = [160,160];
 target_land_mark = complex([target_size(2)/8*3, target_size(2)/8*5], [target_size(1)/8*3, target_size(1)/8*3]);
@@ -7,7 +9,7 @@ target_scale = abs(target_land_mark(1) - target_land_mark(2));
 land_mark_id = [1,2];
 target_center = mean(target_land_mark);
 
-% level 3 alignment, using face alignment
+% flip the face according to the left-right rotation angle
 OKAO_flip = [17,16,18,19,22,23,20,21,...
     25,24,26,27,30,31,28,29,...
     1,0,2,3,6,7,4,5,...
@@ -52,14 +54,13 @@ points = GetFaceMesh(contour);
 sampling.format = 'points';
 sampling.points = points;
 
-f = ExtractFeature(face, opts, sampling);
-if iscell(f)
-    f = cell2mat(f);
-end
-f = bsxfun(@rdivide, f, sqrt(sum(f.^2,1))+eps);
-f = f(:)/(sqrt(sum(f(:).^2))+eps);
+feat = ExtractFeature(face, opts, sampling);
+feat = cell2mat(feat);
+
+feat = bsxfun(@rdivide, feat, sqrt(sum(feat.^2,1))+eps);
+feat = feat(:)/(sqrt(sum(feat(:).^2))+eps);
 
 contour = contour - target_center;
 norm = sqrt(sum(real(contour).^2) + sum(imag(contour).^2)) + eps;
 
-f = [f; real(contour)'/norm; imag(contour)'/norm];
+feat = [feat; real(contour)'/norm; imag(contour)'/norm];

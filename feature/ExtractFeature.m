@@ -9,10 +9,9 @@ if ~exist('sampling', 'var') || isempty(sampling)
 end
 
 scales = opt.scales;
-if length(scales) > 1
-    features_all = cell(1, length(scales));
-    grids_all = cell(1, length(scales));
-end
+features_all = cell(1, length(scales));
+grids_all = cell(1, length(scales));
+
 im_pyra = GetImagePyramid(im, scales);
 
 for s = 1:length(scales)
@@ -50,11 +49,6 @@ for s = 1:length(scales)
         feature = reshape(feature, [size(feature,1), grids.num_y, grids.num_x]);
     end        
     
-    if length(scales) > 1
-        features_all{s} = feature;
-        grids_all{s} = grids;
-    else
-        features_all = feature;
-        grids_all = grids;
-    end
+    features_all{s} = feature;
+    grids_all{s} = grids;
 end
