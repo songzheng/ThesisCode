@@ -3,7 +3,12 @@ clear;
 addpath ../tools
 addpath(genpath('../tools'));
 addpath ../feature/
-addpath ../../data
+
+if ispc
+    addpath ../../data/
+else
+    addpath /home/data/Data_SongZheng/
+end
 
 feat_path = '../../data/features/';
 model_path = '../../data/models/';
@@ -14,8 +19,8 @@ names = {'FGNET', 'Morph1', 'Morph2', 'Yamaha', 'WebFace'};
 nset = length(names);
 datasets = cell(1, nset);
 
-train_set = [4];
-test_set = [4];
+train_set = [4,3,5];
+test_set = [];
 
 for i = union(train_set, test_set)
     disp(names{i});

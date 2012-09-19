@@ -25,7 +25,9 @@ for i = 1:length(dataset.image_names)
         continue;
     end
         
-    image = imread([dataset.data_root, '/', dataset.image_names{i}]);             
+    name = strrep(dataset.image_names{i}, '\', '/');
+    
+    image = imread([dataset.data_root, '/', name]);             
         
 %     mean_face = mean_face + double(face);
     feat(:, i) = func(image, det, opts);

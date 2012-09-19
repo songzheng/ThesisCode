@@ -1,4 +1,4 @@
-function [test_res_age, test_res_gender, performance] = AgeGenderEvaluationTestRegression(feature, label_age, label_gender, label_view, model)
+function [test_res_age, test_res_gender, performance, view_performance] = AgeGenderEvaluationTestRegression(feature, label_age, label_gender, label_view, model)
 label_age = label_age(:);
 label_gender = label_gender(:);
 label_gender(label_age < 5) = 0;
@@ -39,4 +39,5 @@ for v = 1:max(label_view)
     acc_gender_view(v) = length(find(view_gender == view_gender_gt & view_gender_gt~=0))/length(find(view_gender_gt~=0));
 end
 
-performance = [MAE, acc_age, acc_gender;MAE_view, acc_age_view, acc_gender_view];
+performance = [MAE, acc_age, acc_gender];
+view_performance = [MAE_view, acc_age_view, acc_gender_view];

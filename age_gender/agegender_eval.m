@@ -50,10 +50,11 @@ for i = train_set
     gender(age < 5) = 0;    
     
     % tune lambda on half the data
+    age_group = floor(age/10);
     validation_idx = [];
-    ll = unique([age, gender, view_split], 'rows');
+    ll = unique([age_group, gender], 'rows');
     for j = 1:size(ll,1)
-        split_idx = find(age == ll(j,1) & gender == ll(j,2) & view_split == ll(j,3));
+        split_idx = find(age_group == ll(j,1) & gender == ll(j,2));
         split_idx = randsample(split_idx, round(length(split_idx)/2));
         validation_idx = [validation_idx; split_idx];
     end
@@ -63,7 +64,7 @@ for i = train_set
     best_age_acc = inf;
     best_gender_acc = 0;
     
-    for lambda = [1e-4, 1e-5, 5e-6, 2e-6, 1e-6]
+    for lambda = [3e-4, 1e-4, 3e-5, 1e-5, 3e-6, 1e-6]
         fprintf('>>>>---lambda = %d ----<<<<\n', lambda);
         [age_acc, gender_acc] = AgeGenderEvaluationCrossValidateRegression(...
             feat(:, validation_idx), ...

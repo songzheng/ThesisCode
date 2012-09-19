@@ -1,4 +1,5 @@
-function [age_acc, gender_acc] = AgeGenderEvaluationCrossValidateRegression(feat, age, gender, view_split, bProject, lambda_age, lambda_gender, fold, tag)
+function [age_acc, gender_acc] = AgeGenderEvaluationCrossValidateRegression(feat, age, gender, view_split, ...
+    bProject, lambda_age, lambda_gender, fold, tag)
 
 train_split = cell(1, fold);
 test_split = cell(1, fold);
@@ -8,9 +9,12 @@ for f = 1:fold
     train_split{f} = [];
     test_split{f} = [];
 end
-ll = unique([age, gender], 'rows');
+
+age_group = floor(age/10);
+
+ll = unique([age_group, gender], 'rows');
 for j = 1:size(ll,1)
-    split_idx = find(age == ll(j,1) & gender == ll(j,2));
+    split_idx = find(age_group == ll(j,1) & gender == ll(j,2));
     split_idx = randsample(split_idx, length(split_idx));
     
     num_per_fold = floor(length(split_idx)/fold);
@@ -48,7 +52,7 @@ for f = 1:fold
         % end
         
         % PCA subspace model
-        [projection, ~, data_mean] = PCA(feat_train', subspacemodel);
+        [projection, eig_v, data_mean] = PCA(feat_train', subspacemodel);
         subspacemodel.projection = projection;
         subspacemodel.mean = data_mean';
         model.subspacemodel = subspacemodel;
@@ -69,15 +73,26 @@ for f = 1:fold
     
 end
 fprintf('\n');
-self_performance = [];
+self_performance = zeros(1,3,fold);
+view_performance = zeros(max(view_split), 3);
+view_count = zeros(max(view_split),1);
 for f = 1:fold
-    [res_age, res_gender, self_performance(:,:,f)] ...
+    [res_age, res_gender, self_performance(:,:,f), vp] ...
         = AgeGenderEvaluationTestRegression(feat(:,test_split{f}), age(test_split{f}), gender(test_split{f}), view_split(test_split{f}), fold_model{f});
+
+    for v = 1:size(vp,1)
+        view_performance(v, :) = view_performance(v, :) + vp(v, :);
+        view_count(v) = view_count(v) + 1;
+    end    
 end
 
-fprintf('Cross validation on %s\n\t MAE \t age acc \t gender acc \n',...
-    tag);
+view_performance = bsxfun(@rdivide, view_performance, view_count);
+
+
+fprintf('Cross validation on %s\n\t MAE \t age acc \t gender acc \n', tag);
 disp( mean(self_performance,3));
+disp(view_performance);
+
 p = mean(self_performance,3);
 age_acc = p(1,1);
 gender_acc = p(1,3);
