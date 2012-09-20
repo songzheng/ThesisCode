@@ -8,15 +8,13 @@ age_data_num = zeros(1,nset);
 
 age_limit = [1, 80];
 
-% config model
-bProject = 0;
-bSplit = 0;
-
 % select frontal faces
 left_right_rot = [];
 up_down_rot = [];
 score = [];
 
+bProject = 1;
+ReducedDim = 1500;
 %
 age_performance = zeros(nset, nset, 4);
 
@@ -40,6 +38,13 @@ for i = train_set
     load([feat_path, tag]);
     feat = feat(:, all_sel);
     
+    % evaluate subspace
+    if bProject
+        load([model_path, tag, '_PCAmodel']);
+        subspacemodel.ReducedDim = ReducedDim;
+        feat = EvalSubspace(feat, subspacemodel);
+    end
+        
     age = datasets{i}.age(all_sel);
     gender = datasets{i}.gender(all_sel);
     view_split = ViewSplit(datasets{i});
@@ -71,7 +76,7 @@ for i = train_set
             age(validation_idx), ...
             gender(validation_idx), ...
             view_split(validation_idx), ...
-            bProject, lambda, lambda, fold, tag);
+            lambda, lambda, fold, tag);
         if age_acc < best_age_acc
             best_age_acc = age_acc;
             best_age_lambda = lambda;
@@ -86,7 +91,7 @@ for i = train_set
     fprintf('best age lambda = %f, gender lambda = %f\n', best_age_lambda, best_gender_lambda)
     [age_acc, gender_acc] = AgeGenderEvaluationCrossValidateRegression(feat,...
         age, gender, view_split, ...
-        bProject, best_age_lambda, best_gender_lambda, fold, tag);
+        best_age_lambda, best_gender_lambda, fold, tag);
 %     save([result_path, '\', tag], 'self_performance');
 %     % train overall model
 %     feat = feat(all_idx, :);

@@ -45,12 +45,23 @@ switch name
         end
         
         if isfield(opt, 'reduced_dim') && ~isempty(opt.reduced_dim)
-            codebook_file = [codebook_dir, '\', 'VQ_', opt.codebook_name, '_', feat_opt.name, '_', num2str(opt.reduced_dim) '_', num2str(opt.codebook_size), '.mat'];
+            codebook_file = [codebook_dir, '\', ...
+                'VQ_', opt.codebook_name, '_', feat_opt.name, ...
+                '_', num2str(opt.reduced_dim) '_', num2str(opt.codebook_size)];
         else
-            codebook_file = [codebook_dir, '\', 'VQ_', opt.codebook_name, '_', feat_opt.name, '_ori_', num2str(opt.codebook_size), '.mat'];
+            codebook_file = [codebook_dir, '\', ...
+                'VQ_', opt.codebook_name, '_', feat_opt.name, ...
+                '_ori_', num2str(opt.codebook_size)];
         end
         
-        if exist(codebook_file, 'file')
+        if isfield(opt, 'rot_aware') && opt.rot_aware
+            codebook_file = [codebook_file, '_rot'];
+            opt.param(1) = 8;
+        else
+            opt.param(1) = -1;
+        end
+        
+        if exist([codebook_file, '.mat'], 'file')
             load(codebook_file);
         else            
             if ~isfield(opt, 'dataset')
@@ -58,7 +69,7 @@ switch name
             end
             
             fprintf('No codebook found, Training...\n');            
-            codebook = TrainVQCodebook(opt.dataset, feat_opt, opt);
+            codebook = TrainCodebook(opt.dataset, feat_opt, opt);
             save(codebook_file, 'codebook');
         end
         
@@ -75,7 +86,7 @@ end
 
 
 function feats = DecodingVQCodebook(codebook)
-if codebook.nReducedDim > 0
+if isfield(codebook, 'nReducedDim') && codebook.nReducedDim > 0
     feats = codebook.projection * codebook.base;
 else
     feats = codebook.base;

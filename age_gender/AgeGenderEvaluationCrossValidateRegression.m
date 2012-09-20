@@ -1,5 +1,5 @@
 function [age_acc, gender_acc] = AgeGenderEvaluationCrossValidateRegression(feat, age, gender, view_split, ...
-    bProject, lambda_age, lambda_gender, fold, tag)
+    lambda_age, lambda_gender, fold, tag)
 
 train_split = cell(1, fold);
 test_split = cell(1, fold);
@@ -37,32 +37,8 @@ for f = 1:fold
     gender_train = gender(train_split{f});
         
     model = [];
-    if bProject
-        subspacemodel.ReducedDim = 1500;
-        % LSDA subspace model
-        %     subspace_opt.Regu = 1;
-        %     subspace_opt.ReguAlpha = 0.1;
-        %     subspace_opt.k = 4;
-        %     subspace_opt.beta = 0.05;
-        %
-        %     % train subspace
-        %     feature = bsxfun(@rdivide, feature, sqrt(sum(feature.^2, 2)) + eps);
-        %     model.subspace_opt = subspace_opt;
-        %     [model.projection, ~, model.mean] = LSDA(label_age+age_limit(2)*label_gender, subspace_opt, feature);
-        % end
-        
-        % PCA subspace model
-        [projection, eig_v, data_mean] = PCA(feat_train', subspacemodel);
-        subspacemodel.projection = projection;
-        subspacemodel.mean = data_mean';
-        model.subspacemodel = subspacemodel;
-    end
     
-    %% train model    
-    if isfield(model, 'subspacemodel')
-        feat_train = EvalSubspace(feat_train, model.subspacemodel);
-    end
-    
+    %% train model        
     model.agemodel = LinearRegressionTrain(feat_train, age_train, lambda_age);
     feat_train = feat_train(:, gender_train ~= 0);
     gender_train = gender_train(gender_train ~= 0);

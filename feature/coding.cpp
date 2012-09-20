@@ -1,7 +1,9 @@
 #include "coding.h"
 // helper functions
 
-inline void Projection(float * src, float * dst, const double * projection, const double * mean, int nDim, int nReducedDim)
+inline void Projection(float * src, float * dst, 
+        const double * projection, const double * mean, 
+        int nDim, int nReducedDim)
 {    
     float norm = 0;
     for(int i=0; i<nReducedDim; i++)
@@ -22,11 +24,22 @@ inline void Projection(float * src, float * dst, const double * projection, cons
 
 void InitCodingVectorQuantization (CodingOpt * opt)
 {
-    opt->length_input = opt->vq_codebook.nDim;
+    // rotation aware: last two dimension are rotations
+    if (opt->param[0] > 0)
+        opt->length_input = opt->vq_codebook.nDim + 2;
+    else
+        opt->length_input = opt->vq_codebook.nDim;
+            
     // sparse block #
     opt->block_num = 1;
     opt->block_size = 1;
-    opt->length = opt->vq_codebook.nBase;
+    
+    
+    // rotation aware: 8 rotations for each base
+    if (opt->param[0] > 0)
+        opt->length = opt->vq_codebook.nBase * 8;
+    else
+        opt->length = opt->vq_codebook.nBase;
 }
 void FuncCodingVectorQuantization (float * data, float * coding, int * coding_bin, const CodingOpt * opt)
 {
@@ -64,6 +77,10 @@ void FuncCodingVectorQuantization (float * data, float * coding, int * coding_bi
             min_base = i;
         }
     }
+    
+    // rotation aware
+    if(opt->param[0] > 0)
+        min_base = min_base * 8 + int(data[nDim]) + int(data[nDim+1]*4);
     
     coding[0] = 1;
     coding_bin[0] = min_base;

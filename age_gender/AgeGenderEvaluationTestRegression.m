@@ -4,10 +4,6 @@ label_gender = label_gender(:);
 label_gender(label_age < 5) = 0;
 [dim, ntest] = size(feature);
 
-if isfield(model, 'subspacemodel')
-    feature = EvalSubspace(feature, model.subspacemodel);
-end
-
 test_res_age = LinearRegressionTest(feature, model.agemodel);
 test_res_gender = LinearRegressionTest(feature, model.gendermodel);
 test_res_gender(test_res_gender < 1.5) = 1;
