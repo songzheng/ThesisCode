@@ -64,7 +64,7 @@ end
 
 align_names = {'AlignLv0', 'AlignLv1', 'AlignLv2'};
 
-for j = 3
+for j = 1:2
     align_name = align_names{j}
 
     for i = union(train_set, test_set)

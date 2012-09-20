@@ -1,11 +1,15 @@
 clear
-addpath ..\tools
-addpath(genpath('..\tools'));
-addpath ..\feature\
-addpath ..\..\data
+addpath ../tools
+addpath(genpath('../tools'));
+addpath ../feature/
+if ispc
+    addpath ../../data/
+else
+    addpath /home/data/Data_SongZheng/
+end
 
-feat_path = '..\..\data\features\';
-model_path = '..\..\data\models\';
+feat_path = '../../data/features/';
+model_path = '../../data/models/';
 
 dataset.name = 'CMUPIE';
 dataset.label_names = {'person_id', 'OMRONFaceDetection'};
