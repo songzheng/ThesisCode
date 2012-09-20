@@ -164,11 +164,27 @@ inline void FuncPixelGray4x4Rot(FloatImage *img, int x, int y, float * dst,
         PixelFeatureOpt * opt)
 {    
     float * p = img->p + (x-1)*img->height + (y-1);
-#pragma unroll
+    float sum_all = 0, sum_all_sq = 0;
+
+    for(int i=0; i<4; i++)
+    {
+        for(int j=0; j<4; j++)
+        {
+            dst[i*4+j] = p[i*img->height+j];
+            sum_all += dst[i*4+j];
+            sum_all_sq += dst[i*4+j] * dst[i*4+j];
+        }
+    }
+
+    float mean = sum_all/16;
+    float std = vl_fast_sqrt_f(sum_all_sq/16 - mean*mean);
+    float factor = std>20?(20/std):1.0f;
+    
+    
     for(int i=0; i<4; i++)
         for(int j=0; j<4; j++)
-            dst[i*4+j] = p[i*img->height+j];
-    
+            dst[i*4+j] = (dst[i*4+j]-mean)*factor;
+
     float sum[4];
     
     sum[0] = p[0]+p[1]+p[4]+p[5];   sum[1] = p[8]+p[9]+p[12]+p[13];   

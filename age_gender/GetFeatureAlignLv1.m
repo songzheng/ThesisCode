@@ -31,4 +31,6 @@ for i = 1:length(feat)
 end
 feat = cell2mat(feat);
 feat = bsxfun(@rdivide, feat, sqrt(sum(feat.^2,1))+eps);
+feat = min(feat, 0.2);
+feat = bsxfun(@rdivide, feat, sqrt(sum(feat.^2,1))+eps);
 feat = feat(:)/(sqrt(sum(feat(:).^2))+eps);

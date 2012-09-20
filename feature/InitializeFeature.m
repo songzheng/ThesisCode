@@ -43,8 +43,13 @@ switch name
         opt.size_y = opt.sbin;         
         
     case 'PatchAppearance'
-        pixel_opt = InitializeFeature('PixelGray4x4', varargin{:});  
-        pixel_coding_opt = InitializeCoding('CodingVectorQuantization', pixel_opt, varargin{:});    
+        if isfield(opt, 'rot_aware') && opt.rot_aware
+            pixel_opt = InitializeFeature('PixelGray4x4Rot', varargin{:});
+        else
+            pixel_opt = InitializeFeature('PixelGray4x4', varargin{:});
+        end
+        pixel_coding_opt = InitializeCoding('CodingVectorQuantization', pixel_opt, varargin{:});
+  
         opt.length = pixel_coding_opt.length;
         opt.image_depth = pixel_opt.image_depth;
         opt.pixel_opt = pixel_opt;
@@ -58,8 +63,15 @@ switch name
         opt.size_x = opt.sbin; 
         opt.size_y = opt.sbin;         
         
-%         feats = pixel_coding_opt.func_decode(pixel_coding_opt.VQCodebook);
-%         visual = pixel_opt.func_visualize(feats);
+        feats = pixel_coding_opt.func_decode(pixel_coding_opt.vq_codebook);
+        visual = pixel_opt.func_visualize(feats);
+        s = ceil(sqrt(length(visual)));
+        visual = reshape([visual, cell(1, s*s-length(visual))], [s,s]);
+        
+        figure(1);
+        clf;
+        imshow(DrawImageFrame(visual));
+        drawnow;
         
     case 'PixelGray4N'
         opt.length = 5;
@@ -73,7 +85,7 @@ switch name
     case 'PixelGray4x4Rot'
         opt.length = 18;
         opt.image_depth = 1;
-        opt.func_visualize = @VisualizePixelGray4x4Rot;
+        opt.func_visualize = @VisualizePixelGray4x4;
         
     case 'PixelGray4x4DCT'
         opt.length = 16;
@@ -94,7 +106,7 @@ for i = 1:size(feats,2)
     tmp = idct2(tmp);
     feats(:, i) = tmp(:);
 end
-feats = sortrows(feats')';
+% feats = sortrows(feats')';
 image = cell(1, size(feats,2));
 for i = 1:size(feats,2)    
     image{i} = reshape(feats(:,i), [4,4]);
@@ -105,5 +117,5 @@ function image = VisualizePixelGray4x4(feats)
 % feats = sortrows(feats')';
 image = cell(1, size(feats,2));
 for i = 1:size(feats,2)
-    image{i} = reshape(feats(:,i), [4,4]);
+    image{i} = reshape(feats(1:16,i), [4,4]);
 end

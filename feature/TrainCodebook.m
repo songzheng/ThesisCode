@@ -1,4 +1,4 @@
-function codebook = TrainVQCodebook(data, feat_opt, coding_opt)
+function codebook = TrainCodebook(data, feat_opt, coding_opt)
 nimage = length(data.image_names);
 
 num_training_data = max(1,floor(coding_opt.codebook_size/500))*50000;
@@ -25,8 +25,7 @@ for i = randsample(1:nimage,ntrain)
         else
             im = im(data.boxes{i}(2,1):data.boxes{i}(2, 4), data.boxes{i}(1,1):data.boxes{i}(1,4), :);
         end
-    end
-       
+    end       
     
     feat = ExtractFeature(im, feat_opt, sampling);
     
@@ -45,7 +44,12 @@ fprintf('\n');
 num_training_data = training_ptr;
 training_data = training_data(:, 1:num_training_data);
 
+if isfield(coding_opt, 'rot_aware') && coding_opt.rot_aware
+    training_data = training_data(1:end-2, :);
+end
+
 if isfield(coding_opt, 'reduced_dim')
+    fprintf('Learning data projection...\n');
     reduced_dim = coding_opt.reduced_dim;
     [codebook.projection, eig_value, codebook.mean] = PCA(training_data');
     codebook.mean = codebook.mean';
@@ -62,14 +66,18 @@ end
 vlfeat_dir = '..\tools\vlfeat\toolbox';
 addpath(vlfeat_dir);
 vl_setup;
-fprintf('Learning Codebook...\n');
-codebook.base = vl_kmeans(training_data, coding_opt.codebook_size);
+fprintf('Learning Codebook Base...\n');
+base = vl_kmeans(training_data, coding_opt.codebook_size);
 
-if isfield(coding_opt, 'reduced_dim')
-    codebook.base = bsxfun(@rdivide, codebook.base, sqrt(sum(codebook.base.^2,1))+eps);
+if strcmp(coding_opt.name, 'CodingFisherVector')
+    fprintf('Learning Codebook GMM...\n');
+    [mu, sigma] = gmm_learning(training_data, base);
+    codebook.mu = mu;
+    codebook.sigma = sigma;
+else   
+    codebook.base = base;
+    codebook.nDim = feat_opt.length;
+    codebook.nBase = coding_opt.codebook_size;
+    codebook.nReducedDim = reduced_dim;
 end
-
-codebook.nDim = feat_opt.length;
-codebook.nBase = coding_opt.codebook_size;
-codebook.nReducedDim = reduced_dim;
 
