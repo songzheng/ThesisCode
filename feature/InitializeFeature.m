@@ -42,6 +42,23 @@ switch name
         opt.size_x = opt.sbin; 
         opt.size_y = opt.sbin;         
         
+    case 'PatchLBP'        
+        pixel_opt = InitializeFeature('PixelGray8N', varargin{:});        
+        pixel_coding_opt = InitializeCoding('CodingPixelLBP', pixel_opt, varargin{:});
+        opt.length = pixel_coding_opt.length;
+        opt.image_depth = pixel_opt.image_depth;
+        
+        opt.pixel_opt = pixel_opt;
+        opt.pixel_coding_opt = pixel_coding_opt;        
+        
+        % patch size
+        if ~isfield(opt, 'sbin') 
+            opt.sbin = 8;
+        end
+        
+        opt.size_x = opt.sbin; 
+        opt.size_y = opt.sbin;    
+        
     case 'PatchAppearance'
         if isfield(opt, 'rot_aware') && opt.rot_aware
             pixel_opt = InitializeFeature('PixelGray4x4Rot', varargin{:});
@@ -68,15 +85,19 @@ switch name
         s = ceil(sqrt(length(visual)));
         visual = reshape([visual, cell(1, s*s-length(visual))], [s,s]);
         
-        figure(1);
-        clf;
-        imshow(DrawImageFrame(visual));
-        drawnow;
+%         figure(1);
+%         clf;
+%         imshow(DrawImageFrame(visual));
+%         drawnow;
         
     case 'PixelGray4N'
         opt.length = 5;
         opt.image_depth = 1;
                 
+    case 'PixelGray8N'
+        opt.length = 8;
+        opt.image_depth = 1;
+        
     case 'PixelGray4x4'
         opt.length = 16;
         opt.image_depth = 1;

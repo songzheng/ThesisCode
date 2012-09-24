@@ -1,5 +1,8 @@
-function [age_acc, gender_acc] = AgeGenderEvaluationCrossValidateRegression(feat, age, gender, view_split, ...
-    lambda_age, lambda_gender, fold, tag)
+function [age_acc, gender_acc] = AgeGenderEvaluationCrossValidateRegression(feat, ...
+    age, gender, view_split, context_mat,...
+    lambda_age, lambda_gender, context_alpha, ...
+    fold, tag,...
+    sufficiency)
 
 train_split = cell(1, fold);
 test_split = cell(1, fold);
@@ -21,7 +24,16 @@ for j = 1:size(ll,1)
     for f = 1:fold
         tt = split_idx((f-1)*num_per_fold+1:f*num_per_fold);
         tr = setdiff(split_idx, tt);
-        test_split{f} = [test_split{f}; tt];
+        
+        if exist('sufficiency', 'var')
+            tt_new = randsample(tr, round(length(tr)*(1-sufficiency)));
+            tr = setdiff(tr, tt_new);
+        else
+            tt_new = [];
+        end
+        
+        
+        test_split{f} = [test_split{f}; tt; tt_new];
         train_split{f} = [train_split{f}; tr];
     end
 end
@@ -39,10 +51,18 @@ for f = 1:fold
     model = [];
     
     %% train model        
-    model.agemodel = LinearRegressionTrain(feat_train, age_train, lambda_age);
+    if ~isempty(context_mat)
+        model.agemodel = LinearRegressionTrainWithContext(feat_train, age_train, lambda_age, context_mat, context_alpha);
+    else
+        model.agemodel = LinearRegressionTrain(feat_train, age_train, lambda_age);
+    end
     feat_train = feat_train(:, gender_train ~= 0);
     gender_train = gender_train(gender_train ~= 0);
-    model.gendermodel = LinearRegressionTrain(feat_train, gender_train, lambda_gender);
+    if ~isempty(context_mat)
+        model.gendermodel = LinearRegressionTrainWithContext(feat_train, gender_train, lambda_gender, context_mat, context_alpha);
+    else
+        model.gendermodel = LinearRegressionTrain(feat_train, gender_train, lambda_gender);
+    end
         
     %%
     fold_model{f} = model;

@@ -17,7 +17,7 @@ for i = randsample(1:nimage,ntrain)
         fprintf('.');
     end
     
-    im = imread([data.data_root, '\', data.image_names{i}]);
+    im = imread(strrep([data.data_root, '\', data.image_names{i}], '\', '/'));
     
     if isfield(data, 'boxes') 
         if isempty(data.boxes{i})
@@ -45,8 +45,10 @@ num_training_data = training_ptr;
 training_data = training_data(:, 1:num_training_data);
 
 if isfield(coding_opt, 'rot_aware') && coding_opt.rot_aware
-    training_data = training_data(1:end-2, :);
+    training_data = training_data(1:end-2, :); 
 end
+
+codebook.nDim = size(training_data,1);
 
 if isfield(coding_opt, 'reduced_dim')
     fprintf('Learning data projection...\n');
@@ -63,7 +65,7 @@ else
 end
 
 
-vlfeat_dir = '..\tools\vlfeat\toolbox';
+vlfeat_dir = '../tools/vlfeat/toolbox';
 addpath(vlfeat_dir);
 vl_setup;
 fprintf('Learning Codebook Base...\n');
@@ -76,7 +78,6 @@ if strcmp(coding_opt.name, 'CodingFisherVector')
     codebook.sigma = sigma;
 else   
     codebook.base = base;
-    codebook.nDim = feat_opt.length;
     codebook.nBase = coding_opt.codebook_size;
     codebook.nReducedDim = reduced_dim;
 end

@@ -34,7 +34,16 @@ lr_rot = [-40, 40];
 
 count_context = 0;
 start_context = 1;
+feat_name = 'HOG';
 opts = InitializeFeature('PatchHOG', 'norient', 16, 'half_sphere', 0, 'sbin', 8, 'scales', [1, 0.75, 0.5]);
+bProject = 0;
+ReducedDim = 1500;
+if bProject
+    proj_suffix = ['_ProjTo', num2str(ReducedDim)];
+else
+    proj_suffix = [];
+end
+
 align_name = 'AlignLv2';
 func = str2func(['GetFeature', align_name]);
 
@@ -47,8 +56,15 @@ det.rotation = [0,0,0];
 f = func(zeros([80,80], 'uint8'), det, opts);
 
 fdim = length(f);
-context_mat = zeros(fdim);
-
+if bProject
+    % use projection learned from web face
+    tag = ['WebFace_', feat_name, 'Feature', '_', align_name];
+    load([model_path, '/', tag, '_PCAmodel']);
+    subspacemodel.ReducedDim = ReducedDim;
+    context_mat = zeros(ReducedDim);
+else
+    context_mat = zeros(fdim);
+end
 
 % persons
 [persons, ignore, person_idx] = unique(dataset.person_id);
@@ -70,6 +86,11 @@ for i = 1:length(persons)
     clear context_feat
     context_feat = GetFaceFeature(context,align_name, opts);
         
+    
+    if bProject
+        context_feat = EvalSubspace(context_feat, subspacemodel);
+    end
+    
     [n1,n2] = meshgrid(1:n);
     n1 = n1(:);
     n2 = n2(:);
@@ -77,11 +98,11 @@ for i = 1:length(persons)
     n = [n1(n1>n2), n2(n1>n2)];
         
     context_feat = context_feat(:, n(:,1)) - context_feat(:, n(:,2));        
-    context_mat = context_mat + context_feat * context_feat;
+    context_mat = context_mat + context_feat * context_feat';
     
     total_contraints = total_contraints+size(context_feat,2);
 end
 
 context_mat = context_mat/total_contraints;
 
-save([feat_path, '/', dataset.name, '_Constraint_HOG_', align_name], 'context_mat', '-v7.3');
+save([feat_path, '/', dataset.name, '_Constraint_', feat_name, '_', align_name, proj_suffix], 'context_mat', '-v7.3');

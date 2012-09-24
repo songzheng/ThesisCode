@@ -28,6 +28,10 @@ switch name
         opt.length = opt.norient;
         opt.input_length = 5;
         
+    case 'CodingPixelLBP'
+        assert(strcmp(feat_opt.name, 'PixelGray8N'));
+        opt.length = 59;
+        opt.input_length = 9;
         
     case 'CodingVectorQuantization'
         codebook_dir = [fileparts(mfilename('fullpath')), '/codebook'];
@@ -45,11 +49,11 @@ switch name
         end
         
         if isfield(opt, 'reduced_dim') && ~isempty(opt.reduced_dim)
-            codebook_file = [codebook_dir, '\', ...
+            codebook_file = [codebook_dir, '/', ...
                 'VQ_', opt.codebook_name, '_', feat_opt.name, ...
                 '_', num2str(opt.reduced_dim) '_', num2str(opt.codebook_size)];
         else
-            codebook_file = [codebook_dir, '\', ...
+            codebook_file = [codebook_dir, '/', ...
                 'VQ_', opt.codebook_name, '_', feat_opt.name, ...
                 '_ori_', num2str(opt.codebook_size)];
         end
