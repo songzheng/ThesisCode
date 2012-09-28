@@ -1,4 +1,32 @@
-clear
+
+fprintf('**************CMUPIE Context***************\n');
+
+feat_name = 'HOG'%RotAware
+feat_suffix = ['_', feat_name, 'Feature'];
+
+align_names = {'AlignLv0', 'AlignLv1', 'AlignLv2'};
+align_name = align_names{3}
+
+bProject = 1
+ReducedDim = 3000
+if bProject
+    proj_suffix = ['_ProjTo', num2str(ReducedDim)];
+else
+    proj_suffix = [];
+end
+
+num_view = 1
+if num_view > 1
+    view_suffix = ['_', num2str(num_view), 'Views'];
+else
+    view_suffix = [];
+end
+
+feat_suffix = [feat_suffix, '_', align_name]
+opt_suffix = [proj_suffix, view_suffix]
+
+
+%%
 addpath ../tools
 addpath(genpath('../tools'));
 addpath ../feature/
@@ -11,6 +39,10 @@ end
 feat_path = '../../data/features/';
 model_path = '../../data/models/';
 
+%% 
+script_select_feature
+%%
+
 dataset.name = 'CMUPIE';
 dataset.label_names = {'person_id', 'OMRONFaceDetection'};
 dataset.label_args = {[], []};
@@ -18,7 +50,8 @@ dataset.label_args = {[], []};
 dataset = LoadDataset(dataset);
 
 score = [];
-lr_rot = [-40, 40];
+lr_rot = [-60, 60];
+% lr_rot = [-40, 40];
 
 % count = 0;
 % 
@@ -32,10 +65,6 @@ lr_rot = [-40, 40];
 %     count = count + sum(sel);
 % end
 
-count_context = 0;
-start_context = 1;
-opts = InitializeFeature('PatchHOG', 'norient', 16, 'half_sphere', 0, 'sbin', 8, 'scales', [1, 0.75, 0.5]);
-align_name = 'AlignLv2';
 func = str2func(['GetFeature', align_name]);
 
 % example det
@@ -47,8 +76,15 @@ det.rotation = [0,0,0];
 f = func(zeros([80,80], 'uint8'), det, opts);
 
 fdim = length(f);
-context_mat = zeros(fdim);
-
+if bProject
+    % use projection learned from web face
+    tag = ['WebFace', feat_suffix];
+    load([model_path, '/', tag, '_PCAmodel']);
+    subspacemodel.ReducedDim = ReducedDim;
+    context_mat = zeros(ReducedDim*num_view);
+else
+    context_mat = zeros(fdim*num_view);
+end
 
 % persons
 [persons, ignore, person_idx] = unique(dataset.person_id);
@@ -62,6 +98,8 @@ for i = 1:length(persons)
     OMRONFaceDet = OMRONFaceDet(sel);
     idx = idx(sel);
         
+    [view_split, view_conf] = ViewSplit(OMRONFaceDet, num_view);    
+    
     n = length(idx);
         
     context.data_root = dataset.data_root;
@@ -69,19 +107,32 @@ for i = 1:length(persons)
     context.image_names = dataset.image_names(idx);
     clear context_feat
     context_feat = GetFaceFeature(context,align_name, opts);
+    
+    if bProject
+        context_feat = EvalSubspace(context_feat, subspacemodel);
+    end
+    
+    context_feat = GenerateMultiViewFeature(context_feat, view_conf);
         
+    
     [n1,n2] = meshgrid(1:n);
     n1 = n1(:);
     n2 = n2(:);
-        
-    n = [n1(n1>n2), n2(n1>n2)];
-        
-    context_feat = context_feat(:, n(:,1)) - context_feat(:, n(:,2));        
-    context_mat = context_mat + context_feat * context_feat;
     
-    total_contraints = total_contraints+size(context_feat,2);
+    if num_view > 1
+        valid_pairs = (n1 > n2) & (view_split(n1) ~= view_split(n2));
+    else
+        valid_pairs = (n1 > n2);
+    end
+        
+    pairs = [n1(valid_pairs), n2(valid_pairs)];
+        
+    context_feat = context_feat(:, pairs(:,1)) - context_feat(:, pairs(:,2));        
+    context_mat = context_mat + context_feat * context_feat';
+    
+    total_contraints = total_contraints+size(pairs,1);
 end
 
 context_mat = context_mat/total_contraints;
 
-save([feat_path, '/', dataset.name, '_Constraint_HOG_', align_name], 'context_mat', '-v7.3');
+save([feat_path, '/', dataset.name, '_Constraint', feat_suffix, opt_suffix], 'context_mat', '-v7.3');

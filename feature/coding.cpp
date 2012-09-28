@@ -41,6 +41,7 @@ void InitCodingVectorQuantization (CodingOpt * opt)
     else
         opt->length = opt->vq_codebook.nBase;
 }
+
 void FuncCodingVectorQuantization (float * data, float * coding, int * coding_bin, const CodingOpt * opt)
 {
     int nBase = opt->vq_codebook.nBase;
@@ -54,22 +55,25 @@ void FuncCodingVectorQuantization (float * data, float * coding, int * coding_bi
     const double * mean = opt->vq_codebook.mean;
     
     float * data_to_encode;
+    bool project;
     if(nReducedDim > 0)
     {
+        project = true;
         data_to_encode = new float[nReducedDim];
         Projection(data, data_to_encode, projection, mean, nDim, nReducedDim);
-        nDim = nReducedDim;     
     }
     else
     {
+        project = false;
         data_to_encode = data;
+        nReducedDim = nDim;
     }
     
     for(int i=0; i<nBase; i++)
     {
         float dist = 0;
-        for(int j=0; j<nDim; j++)
-            dist += (data_to_encode[j] - base[j+i*nDim]) * (data_to_encode[j] - base[j+i*nDim]);
+        for(int j=0; j<nReducedDim; j++)
+            dist += (data_to_encode[j] - base[j+i*nReducedDim]) * (data_to_encode[j] - base[j+i*nReducedDim]);
         
         if(min_base == -1 || dist < min_dist)
         {
@@ -84,7 +88,8 @@ void FuncCodingVectorQuantization (float * data, float * coding, int * coding_bi
     
     coding[0] = 1;
     coding_bin[0] = min_base;
-    if(nReducedDim > 0)
+    
+    if(project)
         delete[] data_to_encode;
 }
 // *************************************** //

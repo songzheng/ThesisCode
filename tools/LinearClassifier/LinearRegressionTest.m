@@ -4,6 +4,6 @@ center = mean(limit);
 gamma = model.gamma;
 
 res = feature' * model.w(1:end-1) + model.w(end);
-res = (res - center)/gamma + center;
-res = max(min(res, limit(2)), limit(1));
+% res = (res - center)/gamma + center;
+% res = max(min(res, limit(2)), limit(1));
 
