@@ -1,6 +1,11 @@
-function model = LinearRegressionTrain(feature, label, lambda)
+function model = LinearRegressionTrain(feature, label, lambda, weight)
 
-[dim,nsample] = size(feature);
+[dim,n] = size(feature);
+
+if ~exist('weight', 'var') || isempty(weight)
+    weight = ones(n, 1);
+end
+
 
 limit = [min(label), max(label)];
 center = mean(limit);
@@ -17,12 +22,12 @@ center = mean(limit);
 % 	
 % w = (A + lambda*eye(dim+1))\B;
 
+nsample = sum(weight);
 
-xm = mean(feature,2);
-ym = mean(label);
-xym = feature * label/nsample;
-
-XL = feature * feature'/nsample;
+xm = sum(bsxfun(@times, feature, weight'),2)/nsample;
+ym = sum(label.*weight)/nsample;
+xym = feature * (label.*weight)/nsample;
+XL = bsxfun(@times, feature, weight') * feature'/nsample;
 
 w = (XL- xm*xm'/(lambda+1) + lambda * eye(dim) )\(xym - xm*ym/(lambda+1));
 b = (ym-w'*xm)/(lambda+1);

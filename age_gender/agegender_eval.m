@@ -15,84 +15,57 @@ score = [];
 
 %
 age_performance = zeros(nset, nset, 4);
-
-age_number = zeros(1, nset);
-    
+age_number = zeros(1, nset);  
     
 
 for i = train_set
-      
+    fprintf('Using training set...\n');
+    
+    %% load data
     disp(names{i});    
-    % select all available feature
-    all_sel = SelectResult(datasets{i}.OMRONFaceDetection, score, [], []);    
-    all_idx = find(all_sel);
     
 %     % select frontal faces
 %     frontal_sel = SelectResult(datasets{i}.OMRONFaceDetection, score, left_right_rot, up_down_rot);
 %     frontal_idx = find(frontal_sel);
 %     age_number_frontal(i) = length(frontal_idx);
          
-    tag = [datasets{i}.name, '_', feat_name, 'Feature', '_', align_name];
         
-    clear feat
-    load([feat_path, tag]);
-    feat = feat(:, all_sel);
-    
-    % evaluate subspace
-    if bProject
-        load([model_path, tag, '_PCAmodel']);
-        subspacemodel.ReducedDim = ReducedDim;
-        feat = EvalSubspace(feat, subspacemodel);
-    end
-        
+    [feat, age, gender, det] = LoadFeature(datasets{i}, feat_opt);
+
+    % load context
     if bContextConstraint
-        context_tag = [context_name, '_Constraint_', feat_name, '_', align_name, proj_suffix];
-        load([feat_path, context_tag]);
+        load([feat_opt.feat_path, context_name, '_Constraint', feat_opt.suffix, feat_opt.conf_suffix]);
     else
         context_mat = [];
     end
     
-    age = datasets{i}.age(all_sel);
-    gender = datasets{i}.gender(all_sel);
-    view_split = ViewSplit(datasets{i});
-    view_split = view_split(all_sel);
-    view_split = min(view_split, 3);
     
-    age = max(min(age, age_limit(2)), age_limit(1));
-    gender(age < 5) = 0;    
-    
-    % data for parameter tuning
-    age_group = floor(age/10);
-    validation_idx = [];
-    ll = unique([age_group, gender], 'rows');
-    for j = 1:size(ll,1)
-        split_idx = find(age_group == ll(j,1) & gender == ll(j,2));
-        split_idx = randsample(split_idx, round(length(split_idx)/2));
-        validation_idx = [validation_idx; split_idx];
-    end
-        
+    %% tuning on cross validation
     
     % tune age and gender lambda on half the data
-    fprintf('>>>>----tune at validation dataset----<<<<\n');
+    fprintf('>>>>----tune using cross validation----<<<<\n');
     try
-        load([model_path, '/', tag, '_BestLambda', proj_suffix]);
+        load([feat_opt.model_path, '/', datasets{i}.name, '_BestLambda', feat_opt.suffix, feat_opt.conf_suffix]);
     catch
         best_age_lambda = 0;
         best_gender_lambda = 0;
-        best_age_acc = inf;
+        best_age_acc = 0;
+        best_MAE = inf;
         best_gender_acc = 0;
 
         for lambda = [3e-4, 1e-4, 3e-5, 1e-5, 3e-6, 1e-6]
             fprintf('>>>>---lambda = %d ----<<<<\n', lambda);
-            [age_acc, gender_acc] = AgeGenderEvaluationCrossValidateRegression(...
-                feat(:, validation_idx), ...
-                age(validation_idx), ...
-                gender(validation_idx), ...
-                view_split(validation_idx), ...
-                [],...
-                lambda, lambda, [], ...
-                fold, [tag,proj_suffix]);
-            if age_acc < best_age_acc
+            [MAE, age_acc, gender_acc] = AgeGenderEvaluationCrossValidateRegression(...
+                feat, ...
+                age, ...
+                gender, ...
+                det, ...
+                lambda, lambda, ...
+                fold, [], ...
+                [],[],...
+                [feat_opt.suffix,feat_opt.conf_suffix]);
+            if MAE < best_MAE
+                best_MAE = MAE;
                 best_age_acc = age_acc;
                 best_age_lambda = lambda;
             end
@@ -103,92 +76,111 @@ for i = train_set
             end
         end
         
-        save([model_path, '/', tag, '_BestLambda', proj_suffix], 'best_age_lambda', 'best_gender_lambda');
+        save([feat_opt.model_path, '/', datasets{i}.name, '_BestLambda', feat_opt.suffix, feat_opt.conf_suffix],...
+            'best_age_lambda', 'best_gender_lambda', 'best_MAE','best_age_acc', 'best_gender_acc');
     end
     
     fprintf('best age lambda = %f, gender lambda = %f\n', best_age_lambda, best_gender_lambda);
+    fprintf('MAE\tage acc\tgender acc\n');
+    fprintf('%f\t%f\t%f\n', best_MAE, best_age_acc, best_gender_acc);
     
-    if bContextConstraint       
-        try
-            load([model_path, '/', tag, '_', context_name, '_BestContextAlpha', proj_suffix]);
-        catch    
+    
+    sufficiency = [0.02:0.02:0.08, 0.1:0.2:0.9];
+    performance = [];
+    
+    for s = sufficiency
+        fprintf('>>>>----evaluate on set %s with %s sufficiency---<<<<\n', datasets{i}.name, s);
+        
+        [MAE, age_acc, gender_acc] = AgeGenderEvaluationCrossValidateRegression(...
+            feat, ...
+            age, ...
+            gender, ...
+            det, ...
+            best_age_lambda, best_gender_lambda, ...
+            fold, s, ...          
+            [],[],...
+            [feat_opt.suffix,feat_opt.conf_suffix]);
+        
+        performance(end+1, :) = [MAE, age_acc, gender_acc];
+    end
+    
+    fprintf('>>>>----summary----<<<<\n')
+    disp([sufficiency', performance]);
+    
+    if bContextConstraint
+        
+        performance_context = [];
+        for s = sufficiency
+            fprintf('>>>>----evaluate on set %s with %s sufficiency and context---<<<<\n', datasets{i}.name, s);
+            best_context_MAE = inf;
+            best_context_age_acc = 0;
+            best_context_gender_acc = 0;
             best_context_alpha = 0;
-            best_age_acc = inf;
-
-            for alpha = [3e-4, 1e-4, 3e-5, 1e-5, 3e-6, 1e-6]
-                fprintf('>>>>--- context alpha = %d ----<<<<\n', alpha);
-                [age_acc, gender_acc] = AgeGenderEvaluationCrossValidateRegression(...
-                    feat(:, validation_idx), ...
-                    age(validation_idx), ...
-                    gender(validation_idx), ...
-                    view_split(validation_idx), ...
-                    context_mat,...
-                    best_age_lambda, best_age_lambda, alpha, ...
-                    fold, [tag,proj_suffix]);
+            
+            for alpha = [0.5:0.05:0.95, 1./(0.5:0.05:0.95)];
+                fprintf('****Evaluate with Context alpha = %f****\n', alpha)
                 
-                if age_acc < best_age_acc
-                    best_age_acc = age_acc;
+                
+                [MAE, age_acc, gender_acc] = AgeGenderEvaluationCrossValidateRegression(...
+                    feat, ...
+                    age, ...
+                    gender, ...
+                    det, ...
+                    best_age_lambda, best_gender_lambda, ...
+                    fold, s, ...
+                    context_mat,alpha,...
+                    [feat_opt.suffix,feat_opt.conf_suffix]);
+                
+                if MAE < best_context_MAE
                     best_context_alpha = alpha;
                 end
+                
+                best_context_MAE = min(best_context_MAE, MAE);
+                best_context_age_acc = max(best_context_age_acc, age_acc);
+                best_context_gender_acc = max(best_context_gender_acc, gender_acc);
+                
             end
-            save([model_path, '/', tag, '_', context_name, '_BestContextAlpha', proj_suffix], 'best_context_alpha');
+            performance_context(end+1, :) = [best_context_MAE, best_context_age_acc, best_context_gender_acc];
         end
+        
+        fprintf('>>>>----summary----<<<<\n')
+        disp([sufficiency', performance_context]);
+    end
+    
+    %% train and eval on test set
+    
+    if isempty(test_set)
+        continue;
+    end
+        
+%     try
+%         load([feat_opt.model_path, '/', datasets{i}.name, '_Model', feat_opt.suffix, feat_opt.conf_suffix]);
+%     catch
+        fprintf('>>>>----train models on whole dataset----<<<<\n');
+        model = AgeGenderEvaluationTrainRegression(feat,...
+            age, gender, [],...
+            best_age_lambda, best_gender_lambda, []);
+%         save([feat_opt.model_path, '/', datasets{i}.name, '_Model', feat_opt.suffix, feat_opt.conf_suffix], 'model');
+%     end
+    datasets{i}.agegender_model = model;
+    
+    for j = test_set
+        clear feat_test
+        [feat_test, age_test, gender_test, det_test] = LoadFeature(datasets{j}, feat_opt);
 
-        fprintf('best context alpha = %f\n', best_context_alpha);
-    else
-        best_context_alpha = [];
+        fprintf('>>>>----evaluate on set %s---<<<<\n', datasets{j}.name);
+        [age_res,gender_res] ...
+            = AgeGenderEvaluationTestRegression(feat, datasets{i}.agegender_model);
+        [age_res_test,gender_res_test] ...
+            = AgeGenderEvaluationTestRegression(feat_test, datasets{i}.agegender_model);
+%         age_res_test = CalibrateDistribution(age_res_test, age_res);
+%         gender_res_test = CalibrateDistribution(gender_res_test, gender_res);
+        
+        PerformanceAnalysis(age_test ,gender_test, det_test, age_res_test, gender_res_test);
+%             adjust alpha 
     end
-    
-    fprintf('>>>>----eval at full dataset----<<<<\n');
-    [age_acc, gender_acc] = AgeGenderEvaluationCrossValidateRegression(feat,...
-        age, gender, view_split, context_mat,...
-        best_age_lambda, best_gender_lambda, best_context_alpha,...
-        fold, [tag,proj_suffix]);
-    
-    if exist('sufficiency', 'var') && ~isempty(sufficiency)
-        for s = sufficiency
-            fprintf('>>>>----eval at sufficiency of %f----<<<<\n', s);
-            [age_acc, gender_acc] = AgeGenderEvaluationCrossValidateRegression(feat,...
-                age, gender, view_split, context_mat,...
-                best_age_lambda, best_gender_lambda, best_context_alpha,...
-                fold, [tag,proj_suffix], s);
-        end
-    end
-%     save([result_path, '\', tag], 'self_performance');
-%     % train overall model
-%     feat = feat(all_idx, :);
-%     datasets{i}.age_model = AgeGenderEvaluationTrain(feat, age(all_idx), gender(all_idx),...
-%             bProject, bSplit, [model_path, tag]);
 end
     
-%% cross set evaluation
-
-% for i = 1:nset
-%     disp(names{i});
-%     if isempty(setdiff(train_set, i))
-%         continue;
-%     end
-%     
-%         
-%     sel = SelectResult(datasets{i}.OMRONFaceDetection, score, [], []);
-%     all_idx = find(sel>0);
-%     age_number(i) = length(all_idx);
-%     
-%     clear feat
-%     tag = [datasets{i}.name, '_', feat_name, 'Feature', '_', align_name];
-%     load([feat_path, tag]);
-%     age = datasets{i}.age;
-%     gender = datasets{i}.gender;
-%     for j = setdiff(train_set, i);
-%         [~,~,p] ...
-%             = AgeGenderEvaluationTest(feat(all_idx, :), age(all_idx), gender(all_idx), datasets{j}.age_model);
-%           
-%         age_performance(i,j,:) = reshape(p, [1,1,4]);
-%         fprintf('Train on %s, Test on %s\n\t MAE=%f, ACC = %f\n',...
-%             datasets{j}.name, datasets{i}.name,...
-%             age_performance(i,j,2),age_performance(i,j,3));
-%     end
-% end
 % 
 % %% report performance
 % fprintf('---------------------------------------------\n');

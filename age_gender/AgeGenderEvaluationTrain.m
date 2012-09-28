@@ -1,4 +1,5 @@
-function model = AgeGenderEvaluationTrain(feature, age, gender, bProject, bSplit, model_path)
+function model = AgeGenderEvaluationTrain(feat, label_age, label_gender, bProject, model_path)
+
 
 if ~isempty(model_path)
     model_name = [model_path, '_model_proj', num2str(bProject), '_split', num2str(bSplit)];
